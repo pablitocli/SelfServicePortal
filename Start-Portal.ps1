@@ -703,7 +703,7 @@ Start-PodeServer -Threads 8 -RootPath $root {
         $r = Invoke-PortalApi -WebEvent $WebEvent -Permission 'security.manage' -Action {
             param($u)
             $audit = Get-PortalPath -Name Audit
-            $bg = if (Test-Path $audit) { @(Get-Content -LiteralPath $audit -Tail 2000 | Where-Object { $_ -match '"auth\.breakglass"' } | Select-Object -Last 5 | ForEach-Object { $_ | ConvertFrom-Json }) } else { @() }
+            $bg = @(if (Test-Path $audit) { @(Get-Content -LiteralPath $audit -Tail 2000 | Where-Object { $_ -match '"auth\.breakglass"' } | Select-Object -Last 5 | ForEach-Object { $_ | ConvertFrom-Json }) })
             [ordered]@{
                 policy     = Get-PortalSecurityPolicy
                 roles      = @(Get-PortalRoleList)

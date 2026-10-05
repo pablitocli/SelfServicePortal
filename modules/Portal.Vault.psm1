@@ -85,6 +85,7 @@ function Get-PortalVaultKey {
             else {
                 $key = [byte[]]::new(32); [System.Security.Cryptography.RandomNumberGenerator]::Fill($key)
                 $protected = ConvertTo-SecureString -String ([Convert]::ToBase64String($key)) -AsPlainText -Force | ConvertFrom-SecureString
+                $null = New-Item -ItemType Directory -Path (Split-Path -Parent $info.location) -Force
                 Set-Content -LiteralPath $info.location -Value $protected -Encoding ascii
             }
         }
@@ -352,7 +353,7 @@ function Get-PortalVaultStatus {
     $info = Get-PortalVaultKeyInfo
     $ok = $true; $err = $null
     try { $null = Invoke-PortalLock -Name 'vault' -ScriptBlock { Read-PortalVaultStore } } catch { $ok = $false; $err = $_.Exception.Message }
-    $entries = if ($ok) { @(Get-PortalVaultEntry) } else { @() }
+    $entries = @(if ($ok) { Get-PortalVaultEntry })     # @() outside: an empty vault must still give an array
     return [ordered]@{
         keyProvider = $info.provider
         keyLocation = $info.location

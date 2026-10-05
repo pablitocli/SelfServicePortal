@@ -123,7 +123,7 @@ configured. CI runs them on Linux and Windows ([.github/workflows/ci.yml](.githu
 
 ## Status
 
-Version 1.0.0. The engine, UI, identity layer (verified against OpenLDAP over LDAPS and StartTLS) and vault are
+Version 1.0.1. The engine, UI, identity layer (verified against OpenLDAP over LDAPS and StartTLS) and vault are
 covered by automated tests; integration with production vCenter, Active Directory and cloud tenants must be validated
 in your environment — start with a lab site. Planned work is in the [roadmap](docs/roadmap.md).
 

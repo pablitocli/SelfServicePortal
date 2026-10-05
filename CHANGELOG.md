@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-05
+
+### Fixed
+- First start failed with "The property 'Count' cannot be found on this object" in `Get-PortalVaultStatus` when the credential vault was still empty.
+- The DPAPI vault key provider (Windows) now creates `data/vault` itself before writing the protected key.
+
 ## [1.0.0] - 2026-10-05
 
 First public release.
@@ -82,5 +88,6 @@ First public release.
 - Offline smoke test suite (`tests/Invoke-SmokeTest.ps1`).
 - Technical documentation in `docs/`.
 
-[Unreleased]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/OWNER/SelfServicePortal/releases/tag/v1.0.0

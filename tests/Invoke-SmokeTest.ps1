@@ -28,6 +28,10 @@ function Check([string] $Name, [bool] $Condition) {
     else            { $script:fail++; Write-Host "  [FAIL] $Name" -ForegroundColor Red }
 }
 
+Write-Host "`nFirst start" -ForegroundColor Cyan
+$vs = Get-PortalVaultStatus
+Check 'Vault status works on a new, empty vault (first start)' ($vs.healthy -and $vs.entries -eq 0)
+
 # --- Fixtures ----------------------------------------------------------------------------------------------
 $cfgPath = Join-Path $temp 'config/portal.config.json'
 $cfg = Read-PortalJson -Path $cfgPath
