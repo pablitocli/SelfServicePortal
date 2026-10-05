@@ -1,0 +1,201 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "sql-server-2022",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "SQL Server 2022 instance",
+  "category": "Software installation",
+  "icon": "database",
+  "summary": "Install a SQL Server 2022 Database Engine instance on an existing Windows Server VM.",
+  "description": "Runs inside the guest through VMware Tools (no WinRM). Optionally prepares four RAW disks as D: data, E: logs, F: backup and T: tempdb (NTFS, 64 KB allocation unit, in disk-number order), installs the Database Engine unattended from the site media share, then sets max server memory, MAXDOP, cost threshold for parallelism 50 and backup compression. The guest account must be able to read the media share (domain account) and is added as sysadmin for the post-configuration.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "SQL Server",
+    "2022",
+    "Database",
+    "Windows"
+  ],
+  "estimatedDuration": "30-60 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "Infrastructure"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "sites": [
+    "DC1",
+    "DC2"
+  ],
+  "execution": {
+    "handler": "Install-GuestSqlServer.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 120,
+    "fixedParameters": {
+      "InstallerPath": {
+        "DC1": "TBD-\\\\fileserver\\software\\SQL2022",
+        "DC2": "TBD-\\\\fileserver\\software\\SQL2022"
+      },
+      "ProductKey": ""
+    }
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "help": "Powered-on Windows Server VM with VMware Tools running.",
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ],
+        "powerState": "PoweredOn"
+      }
+    },
+    {
+      "name": "GuestCredential",
+      "label": "Guest administrator credential",
+      "type": "credential",
+      "group": "Target",
+      "required": true,
+      "help": "Local administrator in the guest; a domain account is needed to read the media share.",
+      "vaultTags": [
+        "guest-windows"
+      ]
+    },
+    {
+      "name": "InstanceName",
+      "label": "Instance name",
+      "type": "text",
+      "group": "Instance",
+      "required": true,
+      "default": "MSSQLSERVER",
+      "transform": "upper",
+      "help": "MSSQLSERVER = default instance.",
+      "validation": {
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,15}$",
+        "patternMessage": "1-16 characters, start with a letter; letters, digits and underscore."
+      }
+    },
+    {
+      "name": "Collation",
+      "label": "Server collation",
+      "type": "select",
+      "group": "Instance",
+      "required": true,
+      "default": "SQL_Latin1_General_CP1_CI_AS",
+      "options": [
+        {
+          "value": "SQL_Latin1_General_CP1_CI_AS",
+          "label": "SQL_Latin1_General_CP1_CI_AS (SQL Server default, en-US)"
+        },
+        {
+          "value": "Latin1_General_CI_AS",
+          "label": "Latin1_General_CI_AS (Windows collation)"
+        },
+        {
+          "value": "Latin1_General_100_CI_AS_SC_UTF8",
+          "label": "Latin1_General_100_CI_AS_SC_UTF8 (UTF-8)"
+        },
+        {
+          "value": "Modern_Spanish_CI_AS",
+          "label": "Modern_Spanish_CI_AS"
+        }
+      ]
+    },
+    {
+      "name": "SysAdminGroup",
+      "label": "SQL sysadmin group",
+      "type": "text",
+      "group": "Instance",
+      "required": true,
+      "placeholder": "DOMAIN\\SQL-Admins",
+      "validation": {
+        "pattern": "^[A-Za-z0-9._-]+\\\\[A-Za-z0-9 ._$-]+$",
+        "patternMessage": "DOMAIN\\Group"
+      }
+    },
+    {
+      "name": "SqlServiceCredential",
+      "label": "Service account (optional)",
+      "type": "credential",
+      "group": "Instance",
+      "required": false,
+      "help": "Domain account for the Database Engine and Agent. Empty = virtual service accounts (NT Service\\...).",
+      "vaultTags": [
+        "sql-service"
+      ]
+    },
+    {
+      "name": "MaxDop",
+      "label": "MAXDOP",
+      "type": "number",
+      "group": "Configuration",
+      "required": false,
+      "default": 0,
+      "help": "0 = auto: number of vCPUs, max 8.",
+      "validation": {
+        "min": 0,
+        "max": 64
+      }
+    },
+    {
+      "name": "MaxServerMemoryMB",
+      "label": "Max server memory (MB)",
+      "type": "number",
+      "group": "Configuration",
+      "required": false,
+      "default": 0,
+      "help": "0 = auto: VM memory minus max(4 GB, 10%).",
+      "validation": {
+        "min": 0,
+        "max": 4194304
+      }
+    },
+    {
+      "name": "TempDbFiles",
+      "label": "tempdb data files",
+      "type": "number",
+      "group": "Configuration",
+      "required": false,
+      "default": 0,
+      "help": "0 = auto: number of vCPUs, max 8.",
+      "validation": {
+        "min": 0,
+        "max": 32
+      }
+    },
+    {
+      "name": "PrepareDisks",
+      "label": "Prepare data disks (D, E, F, T)",
+      "type": "boolean",
+      "group": "Configuration",
+      "default": true,
+      "help": "Formats the first 4 RAW disks (by disk number) as D: data, E: logs, F: backup, T: tempdb. Off = the drives must already exist."
+    }
+  ]
+}

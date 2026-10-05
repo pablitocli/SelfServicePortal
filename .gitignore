@@ -1,6 +1,6 @@
 # Live configuration and state (created at first start from config/*.default.json)
-config/portal.config.json
-config/local-users.json
+config/*.json
+!config/*.default.json
 config/_backup/
 data/*
 !data/.gitkeep

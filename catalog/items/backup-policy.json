@@ -1,0 +1,88 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "backup-policy",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Backup policy assignment",
+  "category": "Backup",
+  "icon": "backup",
+  "summary": "Assign, change or remove the backup policy of a VM.",
+  "description": "Tags the VM with its backup policy (vSphere tag category from Admin > Data files > Backup policies, tag = policy id). Backup products select their VMs by that tag, so the portal stays vendor-agnostic. Any previous policy is replaced; 'None' removes the VM from backup selection when that policy is defined in the data file.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "Backup",
+    "vSphere",
+    "Tags"
+  ],
+  "estimatedDuration": "1-2 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "Infrastructure"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "sites": [
+    "DC1",
+    "DC2"
+  ],
+  "execution": {
+    "handler": "Set-PortalBackupPolicy.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 15,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "Policy",
+      "label": "Backup policy",
+      "type": "select",
+      "group": "Policy",
+      "required": true,
+      "help": "Policies come from Admin > Data files > Backup policies. 'None' removes the VM from backup selection.",
+      "source": {
+        "type": "backupPolicies"
+      }
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Governance",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

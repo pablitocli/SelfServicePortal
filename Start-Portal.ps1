@@ -56,8 +56,8 @@ if ($IsWindows) {
 }
 
 Import-Module Pode -MinimumVersion 2.10.0 -ErrorAction Stop
-$portalModules = 'Portal.Core', 'Portal.Security', 'Portal.Vault', 'Portal.Identity', 'Portal.Auth', 'Portal.Catalog', 'Portal.Jobs',
-                 'Portal.Sites', 'Portal.Cloud', 'Portal.Settings', 'Portal.Web' |
+$portalModules = 'Portal.Core', 'Portal.Security', 'Portal.Vault', 'Portal.Identity', 'Portal.Auth', 'Portal.Data', 'Portal.Catalog', 'Portal.Jobs',
+                 'Portal.Storage', 'Portal.Sites', 'Portal.Cloud', 'Portal.Settings', 'Portal.Web' |
     ForEach-Object { Join-Path $root "modules/$_.psm1" }
 $portalModules | ForEach-Object { Import-Module $_ -Force }
 
@@ -333,10 +333,14 @@ Start-PodeServer -Threads 8 -RootPath $root {
             param($u)
             $item = Get-PortalCatalogItem -Id ([string]$data['itemId'])
             if (-not $item -or -not (Test-PortalItemAccess -Item $item -User $u)) { New-PortalApiError -Status 404 -Message 'Catalog item not found.' }
-            if (Test-PortalItemRequiresReauth -Item $item) { $null = Test-PortalSessionGate -Sid $u.sid -RequireReauth }
+            $authz = $null
+            if (Test-PortalItemRequiresReauth -Item $item) {
+                $null = Test-PortalSessionGate -Sid $u.sid -RequireReauth
+                $authz = [ordered]@{ by = $u.username; at = (Get-PortalTimestamp); ip = [string]$u.meta.ip; reauthenticated = $true }
+            }
             $check = Test-PortalRequestInput -Item $item -Submitted $(if ($data['inputs']) { $data['inputs'] } else { @{} })
             if (-not $check.valid) { New-PortalApiError -Status 422 -Message 'Please correct the highlighted fields.' -Fields $check.errors }
-            $req = New-PortalRequest -Item $item -Values $check.values -User $u
+            $req = New-PortalRequest -Item $item -Values $check.values -User $u -Authorization $authz
             [ordered]@{ id = $req.id; status = $req.status }
         }
         Write-PodeJsonResponse -Value $r.Body -StatusCode $r.Status -Depth 20
@@ -383,6 +387,92 @@ Start-PodeServer -Threads 8 -RootPath $root {
         }
         Write-PodeJsonResponse -Value $r.Body -StatusCode $r.Status -Depth 5
     }
+
+    # Reports produced by a job (HTML / CSV). Served with a CSP that forbids scripts.
+    Add-PodeRoute -Method Get -Path '/api/requests/:id/reports/:file' -Authentication $authName -ScriptBlock {
+        $id = $WebEvent.Parameters['id']; $file = $WebEvent.Parameters['file']
+        $r = Invoke-PortalApi -WebEvent $WebEvent -Action {
+            param($u)
+            $req = try { Get-PortalRequest -Id $id } catch { $null }
+            if (-not $req) { New-PortalApiError -Status 404 -Message 'Request not found.' }
+            Assert-PortalRequestVisible -Request $req -User $u
+            $p = Get-PortalRequestReport -Id $id -Name $file
+            if (-not $p) { New-PortalApiError -Status 404 -Message 'Report not found.' }
+            $p
+        }
+        if ($r.Status -ne 200) { Write-PodeJsonResponse -Value $r.Body -StatusCode $r.Status; return }
+        Set-PodeHeader -Name 'Content-Security-Policy' -Value "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
+        Set-PodeHeader -Name 'X-Content-Type-Options' -Value 'nosniff'
+        if ($file -like '*.csv') { Set-PodeHeader -Name 'Content-Disposition' -Value ('attachment; filename=' + $file) }
+        Write-PodeFileResponse -Path $r.Body
+    }
+
+    #region API: storage scan / rescan (New datastore) ---------------------------------------------------
+    # Every rescan needs a recent re-authentication; one per cluster at a time, cooldown between rescans; who / when / IP audited.
+    Add-PodeRoute -Method Get -Path '/api/storage/scan' -Authentication $authName -ScriptBlock {
+        $q = $WebEvent.Query
+        $r = Invoke-PortalApi -WebEvent $WebEvent -Action {
+            param($u)
+            $item = Get-PortalCatalogItem -Id ([string]$q['itemId'])
+            if (-not $item -or -not (Test-PortalItemAccess -Item $item -User $u)) { New-PortalApiError -Status 404 -Message 'Catalog item not found.' }
+            if (-not (@($item.inputs) | Where-Object { $_.Contains('source') -and $_.source.type -eq 'storageDevices' })) { New-PortalApiError -Status 400 -Message 'This item does not use storage devices.' }
+            if (-not (Get-PortalSite -Code ([string]$q['site']))) { New-PortalApiError -Status 404 -Message 'Site not found.' }
+            Get-PortalStorageView -Site ([string]$q['site']) -Cluster ([string]$q['cluster'])
+        }
+        Write-PodeJsonResponse -Value $r.Body -StatusCode $r.Status -Depth 10
+    }
+
+    # Body: { itemId, site, cluster }
+    Add-PodeRoute -Method Post -Path '/api/storage/rescan' -Authentication $authName -ScriptBlock {
+        $body = ConvertTo-PortalHashtable $WebEvent.Data
+        if (-not $body) { $body = @{} }
+        $r = Invoke-PortalApi -WebEvent $WebEvent -RequireReauth -Action {
+            param($u)
+            $item = Get-PortalCatalogItem -Id ([string]$body['itemId'])
+            if (-not $item -or -not (Test-PortalItemAccess -Item $item -User $u)) { New-PortalApiError -Status 404 -Message 'Catalog item not found.' }
+            if (-not (@($item.inputs) | Where-Object { $_.Contains('source') -and $_.source.type -eq 'storageDevices' })) { New-PortalApiError -Status 400 -Message 'This item does not use storage devices.' }
+            $site = [string]$body['site']; $cluster = [string]$body['cluster']
+            if (-not $site -or -not $cluster) { New-PortalApiError -Status 400 -Message 'Select the site and the cluster first.' }
+            if (-not (Get-PortalSite -Code $site)) { New-PortalApiError -Status 404 -Message 'Site not found.' }
+            Start-PortalStorageRescan -Site $site -Cluster $cluster -User $u -Ip ([string]$u.meta.ip) -Rescan -ItemId $item.id
+        }
+        Write-PodeJsonResponse -Value $r.Body -StatusCode $r.Status -Depth 10
+    }
+    #endregion
+
+    #region API: admin data files (software repository, baselines, backup policies) ----------------------
+    Add-PodeRoute -Method Get -Path '/api/admin/datafiles' -Authentication $authName -ScriptBlock {
+        $r = Invoke-PortalApi -WebEvent $WebEvent -Permission 'catalog.manage' -Action {
+            param($u) [ordered]@{ files = @(Get-PortalDataFileList) }
+        }
+        Write-PodeJsonResponse -Value $r.Body -StatusCode $r.Status -Depth 30
+    }
+
+    # Body: { json: "<file content>", validateOnly?: bool }
+    Add-PodeRoute -Method Post -Path '/api/admin/datafiles/:name' -Authentication $authName -ScriptBlock {
+        $name = $WebEvent.Parameters['name']
+        $body = ConvertTo-PortalHashtable $WebEvent.Data
+        if (-not $body) { $body = @{} }
+        $r = Invoke-PortalApi -WebEvent $WebEvent -Permission 'catalog.manage' -Action {
+            param($u)
+            if (@(Get-PortalDataFileList | ForEach-Object { $_.name }) -notcontains $name) { New-PortalApiError -Status 404 -Message 'Unknown data file.' }
+            $json = [string]$body['json']
+            if ($body['validateOnly']) {
+                $content = try { $json | ConvertFrom-Json -AsHashtable -Depth 30 } catch { New-PortalApiError -Status 422 -Message "Invalid JSON: $($_.Exception.Message)" }
+                $errs = @(Test-PortalDataFile -Name $name -Content $content)
+                return [ordered]@{ valid = (-not $errs.Count); errors = [string[]]$errs }
+            }
+            $null = Test-PortalSessionGate -Sid $u.sid -RequireReauth
+            try { Set-PortalDataFile -Name $name -Json $json -Actor $u.username }
+            catch {
+                $errs = @(if ($_.Exception.Data.Contains('errors')) { $_.Exception.Data['errors'] } else { $_.Exception.Message })
+                New-PortalApiError -Status 422 -Message 'The file is not valid.' -Fields @{ errors = [string[]]$errs }
+            }
+            [ordered]@{ saved = $true; file = $name }
+        }
+        Write-PodeJsonResponse -Value $r.Body -StatusCode $r.Status -Depth 10
+    }
+    #endregion
 
     foreach ($action in 'approve', 'reject', 'cancel') {
         Add-PodeRoute -Method Post -Path "/api/requests/:id/$action" -Authentication $authName -ArgumentList $action -ScriptBlock {

@@ -1,0 +1,126 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "snapshot-cleanup",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Snapshot cleanup",
+  "category": "Datacenter operations",
+  "icon": "snapshot",
+  "summary": "Find and remove expired or old VM snapshots across a datacenter.",
+  "description": "Scans every VM of the site for snapshots matching the policy (portal snapshots with a passed 'Expires:' date, or snapshots older than the age limit), removes them and consolidates disks when vSphere flags it. Snapshots whose description marks them as protected (keep / do not delete / backup) are never touched. Dry run (default) only produces the report.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Snapshot",
+    "Housekeeping"
+  ],
+  "estimatedDuration": "2-30 min",
+  "access": {
+    "roles": [
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "Infrastructure"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "sites": [
+    "DC1",
+    "DC2"
+  ],
+  "execution": {
+    "handler": "Invoke-VsphereSnapshotCleanup.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 120,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "Scope",
+      "label": "Scope",
+      "type": "select",
+      "group": "Policy",
+      "required": true,
+      "default": "PortalOnly",
+      "options": [
+        {
+          "value": "PortalOnly",
+          "label": "Portal snapshots only (PORTAL-* or 'Expires:' stamp)"
+        },
+        {
+          "value": "All",
+          "label": "All snapshots"
+        }
+      ]
+    },
+    {
+      "name": "OlderThanDays",
+      "label": "Older than (days)",
+      "type": "number",
+      "group": "Policy",
+      "required": true,
+      "default": 7,
+      "help": "Age limit for snapshots without an 'Expires:' stamp (or for all snapshots when 'Expired only' is off).",
+      "validation": {
+        "min": 1,
+        "max": 365
+      }
+    },
+    {
+      "name": "MinSizeGB",
+      "label": "Minimum size (GB)",
+      "type": "number",
+      "group": "Policy",
+      "default": 0,
+      "help": "Ignore snapshots smaller than this. 0 = any size.",
+      "validation": {
+        "min": 0,
+        "max": 10000
+      }
+    },
+    {
+      "name": "ExpiredOnly",
+      "label": "Stamped snapshots: only when expired",
+      "type": "boolean",
+      "group": "Policy",
+      "default": true,
+      "help": "Snapshots with an 'Expires: yyyy-MM-dd' stamp are removed only after that date. Unstamped snapshots use the age limit."
+    },
+    {
+      "name": "DryRun",
+      "label": "Dry run (report only, remove nothing)",
+      "type": "boolean",
+      "group": "Execution",
+      "default": true
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Execution",
+      "required": false,
+      "help": "Required when Dry run is off.",
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

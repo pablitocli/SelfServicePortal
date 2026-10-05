@@ -21,6 +21,30 @@ $env:SSP_PORTAL_ROOT = $root
 Import-Module (Join-Path $root 'modules/Portal.Core.psm1') -Force
 Import-Module (Join-Path $root 'automation/lib/Portal.Vsphere.psm1') -Force
 
+function Add-PortalInventoryHistory {
+    <# Appends one capacity sample per site and day to data/inventory/history/<SITE>.jsonl (kept 400 days). #>
+    param([string] $Site, $Inventory)
+    $dir = Join-Path (Get-PortalPath -Name Inventory) 'history'
+    $null = New-Item -ItemType Directory -Path $dir -Force
+    $path = Join-Path $dir "$Site.jsonl"
+    $today = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
+    $lines = @(if (Test-Path -LiteralPath $path) { Get-Content -LiteralPath $path | Where-Object { $_ } })
+    if ($lines.Count -and $lines[-1] -match ('"date":\s*"' + $today + '"')) { return }
+    $vmsByCluster = @{}; foreach ($v in @($Inventory.vms)) { if ($v.cluster) { $vmsByCluster[$v.cluster] = 1 + [int]$vmsByCluster[$v.cluster] } }
+    $sample = [ordered]@{
+        date       = $today
+        clusters   = @($Inventory.clusters | ForEach-Object {
+            $n = $_.name
+            $cv = @($Inventory.vms | Where-Object { $_.cluster -eq $n -and $_.powerState -eq 'PoweredOn' })
+            [ordered]@{ name = $n; hosts = $_.hosts; cpuGHz = $_.cpuGHz; memoryGB = $_.memoryGB; vms = [int]$vmsByCluster[$n]
+                        vcpu = [int](($cv | Measure-Object -Property numCpu -Sum).Sum); vmMemoryGB = [math]::Round([double](($cv | Measure-Object -Property memoryGB -Sum).Sum), 0) }
+        })
+        datastores = @($Inventory.datastores | ForEach-Object { [ordered]@{ name = $_.name; capacityGB = $_.capacityGB; freeGB = $_.freeGB } })
+    }
+    $lines = @($lines | Select-Object -Last 399) + ($sample | ConvertTo-Json -Depth 6 -Compress)
+    Set-Content -LiteralPath $path -Value $lines -Encoding utf8
+}
+
 $Site       = $Site.ToUpper()
 $folder     = Get-PortalPath -Name Inventory
 $statusPath = Join-Path $folder "$Site.status.json"
@@ -34,9 +58,23 @@ try {
     $clusterViews = Get-View -Server $vi -ViewType ClusterComputeResource -Property Name, Host, Summary
     $clusterByMoRef = @{}
     foreach ($c in $clusterViews) { $clusterByMoRef[$c.MoRef.ToString()] = $c.Name }
-    $hostViews = Get-View -Server $vi -ViewType HostSystem -Property Name, Parent, Runtime.ConnectionState
+    $hostViews = Get-View -Server $vi -ViewType HostSystem -Property Name, Parent, Runtime.ConnectionState, Runtime.InMaintenanceMode,
+        Config.Product.Version, Config.Product.Build, Summary.Hardware.NumCpuCores, Summary.Hardware.MemorySize, Summary.Hardware.Model
     $clusterOfHost = @{}
     foreach ($h in $hostViews) { $clusterOfHost[$h.MoRef.ToString()] = $clusterByMoRef[$h.Parent.ToString()] }
+    $hosts = foreach ($h in $hostViews) {
+        [ordered]@{
+            name            = $h.Name
+            cluster         = $clusterOfHost[$h.MoRef.ToString()]
+            connectionState = [string]$h.Runtime.ConnectionState
+            maintenance     = [bool]$h.Runtime.InMaintenanceMode
+            version         = $(if ($h.Config) { [string]$h.Config.Product.Version } else { $null })
+            build           = $(if ($h.Config) { [int]$h.Config.Product.Build } else { $null })
+            cpuCores        = [int]$h.Summary.Hardware.NumCpuCores
+            memoryGB        = [math]::Round($h.Summary.Hardware.MemorySize / 1GB, 0)
+            model           = [string]$h.Summary.Hardware.Model
+        }
+    }
 
     $clusters = foreach ($c in $clusterViews) {
         [ordered]@{
@@ -63,18 +101,26 @@ try {
         [ordered]@{ name = $p.Name; capacityGB = [math]::Round($p.Summary.Capacity / 1GB, 0); freeGB = [math]::Round($p.Summary.FreeSpace / 1GB, 0) }
     }
 
+    # Distributed switches (VDS) and their port groups.
+    $vdsViews = @(Get-View -Server $vi -ViewType VmwareDistributedVirtualSwitch -Property Name, Summary -ErrorAction SilentlyContinue)
+    $vdsByMoRef = @{}; foreach ($d in $vdsViews) { $vdsByMoRef[$d.MoRef.ToString()] = $d.Name }
+    $vdSwitches = foreach ($d in $vdsViews) {
+        [ordered]@{ name = $d.Name; version = [string]$d.Summary.ProductInfo.Version; hosts = @($d.Summary.HostMember).Count }
+    }
     $portgroups = [System.Collections.Generic.List[object]]::new()
     foreach ($pg in (Get-View -Server $vi -ViewType DistributedVirtualPortgroup -Property Name, Config)) {
         if ($pg.Config.Uplink) { continue }
         $vlan = $pg.Config.DefaultPortConfig.Vlan
         $vlanId = if ($vlan -and $vlan.PSObject.Properties['VlanId'] -and $vlan.VlanId -is [int]) { $vlan.VlanId } else { $null }
-        $portgroups.Add([ordered]@{ name = $pg.Name; vlanId = $vlanId; kind = 'Distributed' })
+        $sw = if ($pg.Config.DistributedVirtualSwitch) { $vdsByMoRef[$pg.Config.DistributedVirtualSwitch.ToString()] } else { $null }
+        $portgroups.Add([ordered]@{ name = $pg.Name; vlanId = $vlanId; kind = 'Distributed'; switch = $sw })
     }
     foreach ($spg in (Get-VirtualPortGroup -Server $vi -Standard -ErrorAction SilentlyContinue | Sort-Object Name -Unique)) {
         if ($portgroups.name -notcontains $spg.Name) { $portgroups.Add([ordered]@{ name = $spg.Name; vlanId = $spg.VLanId; kind = 'Standard' }) }
     }
 
-    $vmViews = Get-View -Server $vi -ViewType VirtualMachine -Property Name, Config.Template, Config.GuestFullName, Runtime.Host, Runtime.PowerState
+    $vmViews = Get-View -Server $vi -ViewType VirtualMachine -Property Name, Config.Template, Config.GuestFullName, Runtime.Host, Runtime.PowerState,
+        Config.Hardware.NumCPU, Config.Hardware.MemoryMB
     $templates = foreach ($v in $vmViews | Where-Object { $_.Config -and $_.Config.Template }) {
         [ordered]@{ name = $v.Name; guestOS = $v.Config.GuestFullName }
     }
@@ -83,6 +129,9 @@ try {
             name       = $v.Name
             cluster    = if ($v.Runtime.Host) { $clusterOfHost[$v.Runtime.Host.ToString()] } else { $null }
             powerState = [string]$v.Runtime.PowerState
+            numCpu     = [int]$v.Config.Hardware.NumCPU
+            memoryGB   = [math]::Round($v.Config.Hardware.MemoryMB / 1024, 1)
+            guestOS    = [string]$v.Config.GuestFullName
         }
     }
 
@@ -116,6 +165,8 @@ try {
         vcenterVersion    = "$($vi.Version) build $($vi.Build)"
         collectedAt       = Get-PortalTimestamp
         clusters          = @($clusters | Sort-Object { $_.name })
+        hosts             = @($hosts | Sort-Object { $_.name })
+        vdSwitches        = @($vdSwitches | Sort-Object { $_.name })
         datastores        = @($datastores | Sort-Object { $_.name })
         datastoreClusters = @($datastoreClusters | Sort-Object { $_.name })
         portgroups        = @($portgroups | Sort-Object { $_.name })
@@ -124,6 +175,7 @@ try {
         vms               = @($vms | Sort-Object { $_.name })
     }
     Write-PortalJson -Path (Join-Path $folder "$Site.json") -Value $inventory
+    Add-PortalInventoryHistory -Site $Site -Inventory $inventory      # one line per day (capacity forecast)
     Write-PortalJson -Path $statusPath -Value ([ordered]@{ state = 'Succeeded'; pid = $PID; startedAt = $started; finishedAt = (Get-PortalTimestamp); error = $null })
     Write-PortalLog -Message "Inventory $Site refreshed: $(@($clusters).Count) clusters, $(@($datastores).Count) datastores, $(@($vms).Count) VMs."
 }

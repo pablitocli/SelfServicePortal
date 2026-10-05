@@ -255,3 +255,10 @@ a.user-meta:hover { background: rgba(255,255,255,.08); text-decoration: none; }
 }
 
 .nav a, .btn-ghost-light { white-space: nowrap; }
+
+/* storage rescan + reports */
+.rescan-row{display:flex;gap:10px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.small{font-size:12px}
+.report-list{list-style:none;margin:0;padding:0}.report-list li{padding:6px 0;border-bottom:1px solid var(--line, #e5e7eb);display:flex;gap:8px;align-items:center}
+.report-list li:last-child{border-bottom:0}
+.datafile-editor{width:100%;min-height:420px;font-family:ui-monospace,Consolas,monospace;font-size:12px}

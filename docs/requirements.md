@@ -159,9 +159,28 @@ The shipped handlers connect to vCenter through PowerCLI with the site's service
 | `New-VsphereSnapshot.ps1` (`vm-snapshot`) | `New-Snapshot` (optional memory / quiesce) | `VirtualMachine.State.CreateSnapshot` (Create snapshot) |
 | Inventory, *Test connection* | `Get-View`, `Get-Cluster`, `Get-Datacenter`, `Get-VirtualPortGroup` | Read-only |
 
-Not used by any shipped handler, so not required: guest operations (`VirtualMachine.GuestOperations.*`), tagging (`InventoryService.Tagging.*`), content library, snapshot removal/revert, VM migration, console interaction, datastore browse / file operations, creating persistent customization specifications.
+**Items added in 1.1.0.** Grant only what the items you enable need; a separate vCenter role (and a separate vault credential bound to those items with `execution.credentials`) for the infrastructure items is recommended.
 
-**Combined role "SSP-Portal"** (all shipped handlers):
+| Item(s) | Additional privileges |
+|---|---|
+| Distributed port group | `DVPortgroup.Create`, `DVPortgroup.PolicyOp`, `DVPortgroup.Modify` (on the VDS); rollback `DVPortgroup.Delete` |
+| DRS rules | `Host.Inventory.EditCluster` (Modify cluster, on the cluster) |
+| vMotion | `Resource.HotMigrate`, `Resource.ColdMigrate`, `Resource.AssignVMToPool`, `Datastore.AllocateSpace` (target), `Network.Assign` |
+| Host maintenance | `Host.Config.Maintenance` |
+| Decommission, purge | `VirtualMachine.Interact.PowerOff`, `VirtualMachine.Config.Rename`, `VirtualMachine.Config.EditDevice`, `VirtualMachine.Inventory.Move`, `Folder.Create`, `VirtualMachine.Config.Annotation`, `Global.SetCustomField`, `InventoryService.Tagging.ObjectAttachable`; purge `VirtualMachine.Inventory.Delete` |
+| Snapshot clean-up | `VirtualMachine.State.RemoveSnapshot` (removal and disk consolidation) |
+| Test clone | `VirtualMachine.Provisioning.Clone`, `VirtualMachine.Inventory.CreateFromExisting`, `Datastore.AllocateSpace`, `Network.Assign`, `VirtualMachine.Config.EditDevice`, `Folder.Create`, `VirtualMachine.Config.Annotation` |
+| SQL Server, Windows roles, agent baseline, AlmaLinux baseline | `VirtualMachine.GuestOperations.Execute`, `.Modify`, `.Query` — plus a guest account in the vault (tags `guest-windows`, `guest-linux`, `ad-join`, `sql-service`). Windows guests need access to the software / SQL media share. |
+| Backup policy, decommission (tag removal) | `InventoryService.Tagging.CreateCategory`, `.CreateTag`, `.ObjectAttachable` |
+| Reports (health, versions, hardening, certificates, right-sizing) | Read-only. Health with orphaned-VMDK search needs `Datastore.Browse`. Certificates: the portal server opens TLS (443) to vCenter and every ESXi host. |
+| New datastore | `Host.Config.Storage` (rescan, create / mount VMFS / NFS), `Datastore.Config`, `StoragePod.Config` (datastore cluster), `Datastore.Move`, rollback `Datastore.Delete`. NFS: the portal server must reach the NFS server on TCP 2049 for the pre-check. |
+| Three-tier blueprint | Union of *Windows Server 2025 VM*, DRS rules, guest items and backup policy. |
+| Cloud cost / power (AWS) | `ec2:DescribeVolumes`, `ec2:DescribeAddresses`, `ec2:DescribeInstances`, `ec2:DescribeSnapshots`, `ec2:StartInstances`, `ec2:StopInstances` (restrict with a tag condition on `PowerSchedule`) |
+| Cloud cost / power (Azure) | `Microsoft.Compute/disks/read`, `snapshots/read`, `virtualMachines/read`, `virtualMachines/instanceView/read`, `Microsoft.Network/publicIPAddresses/read`, `virtualMachines/start/action`, `virtualMachines/deallocate/action` |
+
+Not used by any shipped handler: content library, snapshot revert, console interaction, creating persistent customization specifications.
+
+**Combined role "SSP-Portal"** (VM build and day-2 items of 1.0):
 
 | Category | Privileges |
 |---|---|

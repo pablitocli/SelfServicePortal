@@ -15,7 +15,7 @@ script, so adding a service needs no web development and no restart.
 |---|---|
 | **Service catalog** | JSON items with typed inputs, live lookups from vCenter / AWS / Azure inventory, per-site fixed parameters, VM notes section, validation, hot reload. Visual catalog editor in Admin. |
 | **Workflow** | Optional approvals per item, team-scoped approvers, self-approval policy, out-of-process job runner with timeouts, live job log, rollback convention. |
-| **Shipped items** | Windows Server 2025 and AlmaLinux VMs on vSphere (template per site, App/DB cluster routing), AWS EC2 and Azure VMs, VM power, add disk, resize, snapshot. |
+| **Shipped items (35)** | Build: Windows Server 2025 / AlmaLinux on vSphere, AWS EC2, Azure VMs, three-tier blueprint. Day 2: power, disk, resize, snapshot, vMotion, test clone, decommission with quarantine, snapshot clean-up. Infrastructure: distributed port groups, DRS rules, host maintenance, new datastore (VMFS / NFS) with controlled rescans. Software: SQL Server 2022, Windows roles / MSDTC, agent baseline from a software repository, AlmaLinux baseline. Reports (HTML / CSV): vSphere health, version and hardening compliance, certificates, capacity forecast, right-sizing, cloud cost. Backup policy by vSphere tag (vendor-agnostic). |
 | **Identity** | Local accounts, Active Directory and OpenLDAP (LDAPS / StartTLS), several directories at once, user@domain / DOMAIN\user routing, group → role and group → team mapping, sign-in simulation. |
 | **Security** | TOTP MFA with recovery codes (required for admin roles), password policy, lockout, 30-minute idle timeout with warning, re-authentication for sensitive actions, session revocation, admin networks, separation of duties (Catalog / Security / Vault admins), break-glass accounts, CSRF protection, full audit trail. |
 | **Credential vault** | AES-256-GCM vault for automation credentials (vCenter, guests, LDAP bind, cloud, APIs): write-only, scoped to items and teams, versioned, expiry-aware, injected into jobs as `[pscredential]` and masked in logs. |
@@ -40,7 +40,7 @@ Build the OVA with Packer ([docs/ova.md](docs/ova.md)), deploy it from the vSphe
 ### Option 2 — Linux (AlmaLinux / RHEL / Rocky 9, Ubuntu 24.04)
 
 ```bash
-tar xzf self-service-portal-1.0.0.tar.gz && cd self-service-portal-1.0.0
+tar xzf self-service-portal-1.1.0.tar.gz && cd self-service-portal-1.1.0
 sudo ./packaging/linux/install.sh --hostname-cert portal.example.com
 ```
 
@@ -94,7 +94,7 @@ pre-deployment checklist — is in [docs/requirements.md](docs/requirements.md).
 | Adding services: items, inputs, handlers | [Catalog authoring](docs/catalog-authoring.md) |
 | REST API | [API](docs/api.md) |
 | Backup, upgrades, logs, monitoring, troubleshooting | [Operations](docs/operations.md) |
-| What comes next (21 planned catalog items) | [Roadmap](docs/roadmap.md) |
+| Delivered items and what comes next | [Roadmap](docs/roadmap.md) |
 
 ## Repository layout
 
@@ -114,16 +114,17 @@ docs/                     documentation
 ## Testing
 
 ```powershell
-pwsh -File ./tests/Invoke-SmokeTest.ps1
+pwsh -File ./tests/Invoke-SmokeTest.ps1      # engine, security, workflow (~205 checks)
+pwsh -File ./tests/Invoke-HandlerTests.ps1   # every catalog item + handlers against PowerCLI / cloud stubs (~330 checks)
 ```
 
-About 180 offline checks — catalog, roles and teams, workflow and runner, vault, password policy, lockout, sessions,
+The smoke test runs offline checks — catalog, roles and teams, workflow and runner, vault, password policy, lockout, sessions,
 TOTP (RFC 6238 vectors), permissions, identity routing and migrations — plus live LDAP checks when a test directory is
 configured. CI runs them on Linux and Windows ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
 
 ## Status
 
-Version 1.0.2. The engine, UI, identity layer (verified against OpenLDAP over LDAPS and StartTLS) and vault are
+Version 1.1.0. The engine, UI, identity layer (verified against OpenLDAP over LDAPS and StartTLS) and vault are
 covered by automated tests; integration with production vCenter, Active Directory and cloud tenants must be validated
 in your environment — start with a lab site. Planned work is in the [roadmap](docs/roadmap.md).
 

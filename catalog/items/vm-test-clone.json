@@ -1,0 +1,144 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "vm-test-clone",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Isolated test clone",
+  "category": "Datacenter operations",
+  "icon": "vm",
+  "summary": "Clone a VM onto an isolated network for testing (patches, upgrades, restores).",
+  "description": "Full clone of the selected VM on the same host, placed in the test-clones folder. Every network adapter is moved to the isolated port group and gets a new manual MAC address, so the clone can run next to the original without conflicts. The clone carries a 'Portal.TestClone' annotation with its expiry date.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Lifecycle",
+    "Clone",
+    "Test"
+  ],
+  "estimatedDuration": "5-60 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "Infrastructure"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "sites": [
+    "DC1",
+    "DC2"
+  ],
+  "execution": {
+    "handler": "New-VsphereTestClone.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 120,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Source",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Source virtual machine",
+      "type": "select",
+      "group": "Source",
+      "required": true,
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "CloneName",
+      "label": "Clone name",
+      "type": "text",
+      "group": "Clone",
+      "required": false,
+      "placeholder": "TST-<source name>",
+      "help": "Leave empty for the test-clone prefix + source name (e.g. TST-APP01).",
+      "validation": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,79}$",
+        "patternMessage": "Letters, digits, dot, underscore and hyphen; 2-80 characters.",
+        "maxLength": 80
+      }
+    },
+    {
+      "name": "IsolatedPortGroup",
+      "label": "Isolated port group",
+      "type": "select",
+      "group": "Clone",
+      "required": true,
+      "help": "Must be an isolated network without uplinks. When the portal defines an isolated port group, only that one is accepted.",
+      "source": {
+        "type": "portgroups",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "Datastore",
+      "label": "Datastore",
+      "type": "select",
+      "group": "Clone",
+      "required": true,
+      "help": "Must be visible to the source VM's host.",
+      "source": {
+        "type": "datastores",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "DaysToKeep",
+      "label": "Keep for (days)",
+      "type": "number",
+      "group": "Clone",
+      "required": true,
+      "default": 7,
+      "help": "Maximum 7 days per test-clone policy.",
+      "validation": {
+        "min": 1,
+        "max": 7
+      }
+    },
+    {
+      "name": "PowerOn",
+      "label": "Power on the clone",
+      "type": "boolean",
+      "group": "Clone",
+      "default": false
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Change",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

@@ -36,6 +36,9 @@ jobs:
       - name: Smoke tests
         shell: pwsh
         run: ./tests/Invoke-SmokeTest.ps1
+      - name: Handler tests (PowerCLI / cloud stubs)
+        shell: pwsh
+        run: ./tests/Invoke-HandlerTests.ps1
       - name: Validate catalog items
         shell: pwsh
         run: ./tools/Test-CatalogItem.ps1

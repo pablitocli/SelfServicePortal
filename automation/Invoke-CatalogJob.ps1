@@ -27,6 +27,9 @@ Import-Module (Join-Path $root 'modules/Portal.Core.psm1')     -Force
 Import-Module (Join-Path $root 'modules/Portal.Security.psm1') -Force
 Import-Module (Join-Path $root 'modules/Portal.Jobs.psm1')     -Force
 Import-Module (Join-Path $root 'modules/Portal.Vault.psm1')    -Force
+Import-Module (Join-Path $root 'modules/Portal.Data.psm1')     -Force
+Import-Module (Join-Path $root 'modules/Portal.Storage.psm1')  -Force
+Import-Module (Join-Path $root 'automation/lib/Portal.Report.psm1') -Force
 Import-Module (Join-Path $root 'automation/lib/Portal.Vsphere.psm1') -Force
 Import-Module (Join-Path $root 'automation/lib/Portal.CloudConnect.psm1') -Force
 
@@ -90,6 +93,12 @@ try {
         VIServer          = $vi
         RollbackOnFailure = [bool]$cfg.jobs.rollbackOnFailure
         PortalRoot        = $root
+        ReportDir         = (Get-PortalReportDir -Id $RequestId)      # New-PortalReport writes here
+        Teams             = @(if ($req.Contains('teams')) { $req.teams } else { @() })
+        ItemId            = [string]$req.itemId
+        Approval          = $req.approval
+        Authorization     = $(if ($req.Contains('authorization')) { $req.authorization } else { $null })   # re-auth at submission: by / at / ip
+        Operations        = $(if ($cfg.Contains('operations')) { $cfg.operations } else { [ordered]@{} })  # operations.* settings (quarantine, cooldowns...)
     }
 
     # Build the parameter set: inputs + fixed parameters, only those the handler declares.

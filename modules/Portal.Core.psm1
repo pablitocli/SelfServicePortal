@@ -24,7 +24,7 @@ function Get-PortalPath {
     param(
         [Parameter(Mandatory)]
         [ValidateSet('Root', 'Config', 'CatalogItems', 'CatalogSchema', 'Handlers', 'AutomationLib', 'Automation',
-                     'Requests', 'Inventory', 'JobLogs', 'Audit', 'PortalLog', 'Web')]
+                     'Requests', 'Inventory', 'JobLogs', 'Audit', 'PortalLog', 'Web', 'Reports')]
         [string] $Name
     )
     $root = Get-PortalRoot
@@ -38,6 +38,7 @@ function Get-PortalPath {
         'AutomationLib' { Join-Path $root 'automation/lib' }
         'Requests'      { Join-Path $root 'data/requests' }
         'Inventory'     { Join-Path $root 'data/inventory' }
+        'Reports'       { Join-Path $root 'data/reports' }
         'JobLogs'       { Join-Path $root 'logs/jobs' }
         'Audit'         { Join-Path $root 'logs/audit.jsonl' }
         'PortalLog'     { Join-Path $root 'logs/portal.log' }

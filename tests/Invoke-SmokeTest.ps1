@@ -17,7 +17,7 @@ $env:SSP_PORTAL_ROOT = $temp
 foreach ($d in 'data/requests', 'data/inventory', 'logs/jobs') { $null = New-Item -ItemType Directory -Path (Join-Path $temp $d) -Force }   # not in a fresh clone
 Get-ChildItem (Join-Path $temp 'data/requests') -Filter 'REQ-*' | Remove-Item -Force
 
-'Portal.Core', 'Portal.Security', 'Portal.Vault', 'Portal.Identity', 'Portal.Auth', 'Portal.Catalog', 'Portal.Jobs', 'Portal.Sites', 'Portal.Cloud', 'Portal.Settings', 'Portal.Web' |
+'Portal.Core', 'Portal.Security', 'Portal.Vault', 'Portal.Identity', 'Portal.Auth', 'Portal.Data', 'Portal.Catalog', 'Portal.Jobs', 'Portal.Storage', 'Portal.Sites', 'Portal.Cloud', 'Portal.Settings', 'Portal.Web' |
     ForEach-Object { Import-Module (Join-Path $temp "modules/$_.psm1") -Force }
 Import-Module (Join-Path $temp "automation/lib/Portal.Vsphere.psm1") -Force
 Initialize-PortalConfiguration | Out-Null   # creates config/*.json from *.default.json (first run)
@@ -102,7 +102,8 @@ Check 'Local users file has no clear-text password' (-not ((Get-Content (Join-Pa
 
 Write-Host "`nCatalog" -ForegroundColor Cyan
 $cat = Get-PortalCatalog
-Check 'Valid items loaded (10 shipped + test)' (@($cat.items).Count -eq 11)
+$shippedFiles = @(Get-ChildItem (Get-PortalPath -Name CatalogItems) -Filter *.json)
+Check "Valid items loaded (all shipped items + test item; broken.json rejected)" (@($cat.items).Count -eq ($shippedFiles.Count - 1) -and @($cat.errors).Count -eq 1)
 Check 'Broken item reported, not loaded' ((@($cat.errors).file -contains 'broken.json'))
 $reqCat = Get-PortalCatalogForUser -User $requester
 Check 'Snapshot item hidden from Requester' ((@($reqCat).id -notcontains 'vm-snapshot'))
@@ -281,7 +282,8 @@ Check 'AD team mapping (Infrastructure / Cloud)' ((($requester.teams) -join ',')
 $infraIds = @(Get-PortalCatalogForUser -User $requester).id; $cloudIds = @(Get-PortalCatalogForUser -User $cloudUser).id
 Check 'Infrastructure user sees infra items only' (($infraIds -contains 'vm-windows-2025') -and -not ($infraIds | Where-Object { $_ -like 'cloud-*' }))
 Check 'Cloud user sees cloud items only' (($cloudIds -contains 'cloud-aws-windows-2025') -and -not ($cloudIds | Where-Object { $_ -like 'vm-*' }))
-Check 'Admin sees every team item' ((@(Get-PortalCatalogForUser -User $admin).id | Where-Object { $_ -like 'cloud-*' -or $_ -like 'vm-*' }).Count -eq 10)
+$teamItems = @(Get-PortalCatalog).items | Where-Object { $_.enabled -and $_.Contains('access') -and $_.access.Contains('teams') -and @($_.access.teams).Count }
+Check 'Admin sees every team item' (@(Get-PortalCatalogForUser -User $admin).Count -ge @($teamItems).Count -and @($teamItems).Count -ge 30)
 $cloudApprover = Get-PortalUserContext -AuthUser @{ Username = 'capp'; Name = 'Cloud Approver'; Domain = 'CORP'; Groups = @('PortalApprovers', 'SSP-Team-Cloud') }
 $winItem = Get-PortalCatalogItem -Id 'vm-windows-2025'
 $infraReq = New-PortalRequest -Item $winItem -Values (Test-PortalRequestInput -Item $winItem -Submitted $good).values -User $requester
@@ -549,6 +551,77 @@ if ($env:SSP_TEST_LDAP_CA -or $env:LDAPTLS_CACERT) {
     $bobCtx = Get-PortalUserContext -AuthUser (Use-PortalLoginTicket -Ticket $lb2.ticket -Ip '10.2.0.9')
     Check 'Directory user can re-authenticate against own provider' ((Confirm-PortalReauthentication -User $bobCtx -Password 'Bob-Passw0rd!' -Ip '10.2.0.9').ok)
 }
+
+Write-Host "`nPhase 3 platform: data files, lookups, storage rescan, reports" -ForegroundColor Cyan
+Check 'Data files created at first start (software, baselines, backup)' (@('software', 'version-baseline', 'hardening-baseline', 'backup' | Where-Object { Test-Path (Join-Path $temp "config/$_.json") }).Count -eq 4)
+Check 'Shipped data files are valid' (-not @(Get-PortalDataFileList | Where-Object { @(Test-PortalDataFile -Name $_.name -Content $_.content).Count }).Count)
+$cfgNow = Get-PortalConfig -Force
+Check 'Operations settings present (storage cooldown 10 min)' ($cfgNow.Contains('operations') -and $cfgNow.operations.storage.rescanCooldownMinutes -eq 10)
+$swJson = Get-Content (Join-Path $temp 'config/software.json') -Raw
+$bad = $swJson | ConvertFrom-Json -AsHashtable; $bad.packages += $bad.packages[0]
+$dfErr = try { Set-PortalDataFile -Name software -Json ($bad | ConvertTo-Json -Depth 20) -Actor 'admin'; $null } catch { @($_.Exception.Data['errors']) }
+Check 'Invalid data file rejected with reasons (duplicate package)' ($dfErr -and ($dfErr -join ' ') -match 'Duplicate package')
+$ok = $swJson | ConvertFrom-Json -AsHashtable; ($ok.packages | Where-Object id -eq 'monitoring-agent-win').status = 'Approved'
+Set-PortalDataFile -Name software -Json ($ok | ConvertTo-Json -Depth 20) -Actor 'admin'
+Check 'Data file saved with backup copy' (@(Get-ChildItem (Join-Path $temp 'config/_backup') -Filter 'software.*.json' -ErrorAction SilentlyContinue).Count -ge 1)
+$set = @(Get-PortalSoftwareSet -Os windows) | Select-Object -First 1
+Check 'Software set: only Approved packages installable, others listed as skipped' ($set -and @($set.packages).id -contains 'monitoring-agent-win' -and @($set.skipped).Count -ge 1)
+Check 'Backup agent stays pending (not installable)' (-not (@(Get-PortalSoftwareSet) | ForEach-Object { @($_.packages).id } | Where-Object { $_ -match 'backup' }))
+
+$abItem = Get-PortalCatalogItem -Id 'agent-baseline'
+Check 'Lookup softwareSets' (@(Get-PortalLookupOptions -Item $abItem -InputName 'BaselineSet' -Values @{ Site = 'DC1' }).Count -ge 1)
+$bpItem = Get-PortalCatalogItem -Id 'backup-policy'
+Check 'Lookup backupPolicies (vendor-agnostic)' (@(Get-PortalLookupOptions -Item $bpItem -InputName 'Policy' -Values @{ Site = 'DC1' }).value -contains 'Gold')
+
+$invPath = Join-Path $temp 'data/inventory/DC1.json'
+$inv = Read-PortalJson -Path $invPath
+$inv['hosts'] = @(
+    [ordered]@{ name = 'esx01.test'; cluster = 'CL-APP-01'; connectionState = 'Connected'; maintenance = $false; version = '8.0.3'; build = 24022510 },
+    [ordered]@{ name = 'esx02.test'; cluster = 'CL-APP-01'; connectionState = 'Connected'; maintenance = $true; version = '8.0.3'; build = 24022510 },
+    [ordered]@{ name = 'esx09.test'; cluster = 'CL-DB-01'; connectionState = 'Connected'; maintenance = $false; version = '8.0.3'; build = 24022510 })
+$inv['vdSwitches'] = @([ordered]@{ name = 'DVS-PROD'; version = '8.0.0'; hosts = 3 })
+Write-PortalJson -Path $invPath -Value $inv
+$hmItem = Get-PortalCatalogItem -Id 'host-maintenance'
+$hostOpts = @(Get-PortalLookupOptions -Item $hmItem -InputName 'HostName' -Values @{ Site = 'DC1'; Cluster = 'CL-APP-01' })
+Check 'Lookup hosts filtered by cluster' ($hostOpts.Count -eq 2 -and $hostOpts.value -notcontains 'esx09.test')
+Check 'Host maintenance is Admin-only with re-authentication' (-not (Test-PortalItemAccess -Item $hmItem -User $requester) -and (Test-PortalItemRequiresReauth -Item $hmItem))
+
+$dsItem = Get-PortalCatalogItem -Id 'datastore-create'
+Check 'New datastore requires re-authentication' (Test-PortalItemRequiresReauth -Item $dsItem)
+$noScan = try { $null = Get-PortalLookupOptions -Item $dsItem -InputName 'Lun' -Values @{ Site = 'DC1'; Cluster = 'CL-APP-01' }; '' } catch { $_.Exception.Message }
+Check 'LUN lookup never rescans by itself (asks for an explicit rescan)' ($noScan -match 'Rescan storage')
+$st1 = Start-PortalStorageRescan -Site 'DC1' -Cluster 'CL-APP-01' -User $requester -Ip '10.9.9.9' -Rescan -ItemId 'datastore-create'
+Check 'Rescan starts (out of process) and locks the cluster' ($st1.running -and $st1.lockedBy -eq $requester.username)
+$e409 = try { $null = Start-PortalStorageRescan -Site 'DC1' -Cluster 'CL-APP-01' -User $admin -Ip '10.9.9.8' -Rescan; 0 } catch { [int]$_.Exception.Data['status'] }
+Check 'Second rescan while running is refused (409)' ($e409 -eq 409)
+for ($i = 0; $i -lt 60 -and (Get-PortalStorageView -Site 'DC1' -Cluster 'CL-APP-01').running; $i++) { Start-Sleep -Milliseconds 500 }
+$v2 = Get-PortalStorageView -Site 'DC1' -Cluster 'CL-APP-01'
+Check 'Scan without vCenter ends Failed and releases the lock' (-not $v2.running -and $v2.state -eq 'Failed')
+$e429 = try { $null = Start-PortalStorageRescan -Site 'DC1' -Cluster 'CL-APP-01' -User $admin -Ip '10.9.9.8' -Rescan; 0 } catch { [int]$_.Exception.Data['status'] }
+Check 'Rescan inside the 10-minute cooldown is refused (429)' ($e429 -eq 429 -and $v2.cooldownSeconds -gt 500)
+$aud = @(Get-Content (Get-PortalPath -Name Audit) | ForEach-Object { $_ | ConvertFrom-Json } | Where-Object action -eq 'storage.rescan')
+Check 'Rescan audited with user, time and IP' ($aud.Count -eq 1 -and $aud[0].actor -eq $requester.username -and $aud[0].details.ip -eq '10.9.9.9')
+Complete-PortalStorageScan -Site 'DC1' -Cluster 'CL-APP-01' -Devices @(
+    [ordered]@{ canonicalName = 'naa.600a0b80001'; sizeGB = 2048; vendor = 'PURE'; model = 'FlashArray'; allHosts = $true },
+    [ordered]@{ canonicalName = 'naa.600a0b80002'; sizeGB = 1024; vendor = 'PURE'; model = 'FlashArray'; allHosts = $false }) -Hosts @('esx01.test')
+$lunOpts = @(Get-PortalLookupOptions -Item $dsItem -InputName 'Lun' -Values @{ Site = 'DC1'; Cluster = 'CL-APP-01' })
+Check 'LUN lookup lists only devices visible to every host (with scan timestamp)' ($lunOpts.Count -eq 1 -and $lunOpts[0].value -eq 'naa.600a0b80001' -and $lunOpts[0].label -match 'scanned')
+Enter-PortalStorageLock -Site 'DC1' -Cluster 'CL-APP-01' -By 'job-1'
+$lockErr = try { Enter-PortalStorageLock -Site 'DC1' -Cluster 'CL-APP-01' -By 'job-2'; '' } catch { $_.Exception.Message }
+Exit-PortalStorageLock -Site 'DC1' -Cluster 'CL-APP-01'
+Check 'Job handlers share the per-cluster lock' ($lockErr -match 'already running' -and -not (Get-PortalStorageView -Site 'DC1' -Cluster 'CL-APP-01').running)
+
+$authz = [ordered]@{ by = $requester.username; at = (Get-PortalTimestamp); ip = '10.9.9.9'; reauthenticated = $true }
+$tItem = (Get-PortalCatalog).items | Where-Object { $_.id -eq 'vm-snapshot' } | Select-Object -First 1
+$rq = New-PortalRequest -Item $tItem -Values ([ordered]@{ Site = 'DC1'; VMName = 'APPWEB01'; ChangeTicket = 'CHG1'; RetentionDays = 3 }) -User $requester -Authorization $authz
+Check 'Request keeps re-authentication evidence (who / when / IP)' ((Get-PortalRequest -Id $rq.id).authorization.ip -eq '10.9.9.9')
+Import-Module (Join-Path $temp 'automation/lib/Portal.Report.psm1') -Force
+$rctx = [pscustomobject]@{ RequestId = $rq.id; ReportDir = (Get-PortalReportDir -Id $rq.id) }
+$files = New-PortalReport -Title 'Test report' -Context $rctx -Sections @(New-PortalReportSection -Title 'Rows' -Rows @([ordered]@{ Name = '<script>alert(1)</script>'; Status = 'FAIL' }))
+$html = Get-Content (Join-Path $rctx.ReportDir 'test-report.html') -Raw
+Check 'Report written as HTML + CSV, values encoded' (@($files).Count -eq 2 -and $html -notmatch '<script>alert' -and $html -match 's-fail')
+Check 'Request lists its reports; path traversal rejected' (@(Get-PortalRequestReport -Id $rq.id).Count -eq 2 -and -not (Get-PortalRequestReport -Id $rq.id -Name '../x.html'))
+Check 'Request view exposes reports' (@((Get-PortalRequestView -Request (Get-PortalRequest -Id $rq.id) -User $requester).reports).Count -eq 2)
 
 Write-Host "`nUpgrade: legacy Windows-AD configuration" -ForegroundColor Cyan
 $legacy = Read-PortalJson -Path $cfgPath

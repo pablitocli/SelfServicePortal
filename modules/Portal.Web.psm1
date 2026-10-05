@@ -93,6 +93,7 @@ function Get-PortalRequestView {
     foreach ($k in $Request.Keys) { if ($k -ne 'execution') { $view[$k] = $Request[$k] } }
     $view['execution'] = [ordered]@{ timeoutMinutes = $Request.execution.timeoutMinutes }
     $view['canApprove'] = [bool](Test-PortalCanApprove -Request $Request -User $User)
+    $view['reports'] = @(Get-PortalRequestReport -Id $Request.id)
     $view['requiresReauth'] = [bool]($Request.execution.Contains('requireReauth') -and $Request.execution.requireReauth)
     $view['canCancel']  = [bool](@('PendingApproval', 'Queued') -contains $Request.status -and
                                  ($Request.requester.username -eq $User.username -or (Test-PortalRole -User $User -Role 'Admin')))

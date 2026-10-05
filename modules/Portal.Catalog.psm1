@@ -13,10 +13,12 @@ Set-StrictMode -Version Latest
 
 $script:ValidInputTypes  = @('text', 'textarea', 'number', 'select', 'boolean', 'ipv4', 'credential')
 $script:ValidSourceTypes = @('sites', 'clusters', 'datastores', 'datastoreClusters', 'portgroups', 'templates', 'folders', 'vms',
+                            'hosts', 'vdSwitches', 'storageDevices', 'softwareSets', 'backupPolicies',
                             'awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes')
 $script:CloudSources     = @('awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes')
 $script:ValidRoles       = @('Requester', 'Approver', 'Admin', 'CatalogAdmin', 'SecurityAdmin', 'VaultAdmin')
-$script:InventorySources = @('clusters', 'datastores', 'datastoreClusters', 'portgroups', 'templates', 'folders', 'vms')
+$script:InventorySources = @('clusters', 'datastores', 'datastoreClusters', 'portgroups', 'templates', 'folders', 'vms', 'hosts', 'vdSwitches', 'storageDevices')
+$script:DataSources      = @('softwareSets', 'backupPolicies')       # config/<data file>.json (Admin > Data files)
 
 #region Helpers ---------------------------------------------------------------------------------------------
 
@@ -387,6 +389,24 @@ function Get-PortalLookupOptions {
         return $rows
     }
 
+    if ($script:DataSources -contains $type) {
+        $rows = switch ($type) {
+            'softwareSets' {
+                @(Get-PortalSoftwareSet -Os ([string](Get-Prop $src 'os' ''))) | ForEach-Object {
+                    $pend = @($_.skipped).Count
+                    [ordered]@{ value = $_.id; label = ('{0} ({1} approved package(s){2})' -f $_.name, @($_.packages).Count, $(if ($pend) { ", $pend not approved yet" } else { '' })) }
+                }
+            }
+            'backupPolicies' {
+                @((Get-PortalDataFile -Name backup).policies) | Where-Object { Get-Prop $_ 'enabled' $true } |
+                    ForEach-Object { [ordered]@{ value = [string]$_.id; label = $(if (Get-Prop $_ 'description') { "$($_.id) - $($_.description)" } else { [string]$_.id }) } }
+            }
+        }
+        $rows = @($rows)
+        if ($filter) { $rows = @($rows | Where-Object { $_.value -match $filter }) }
+        return $rows
+    }
+
     if ($type -eq 'sites') {
         $allowed = @(Get-Prop $Item 'sites' @())
         return @(Get-PortalSite -EnabledOnly |
@@ -434,12 +454,39 @@ function Get-PortalLookupOptions {
         }
         'templates' { @($inv.templates) | ForEach-Object { [ordered]@{ value = $_.name; label = $_.name } } }
         'folders'   { @($inv.folders)   | ForEach-Object { [ordered]@{ value = $_.path; label = $_.path } } }
-        'vms'       { @($inv.vms)       | ForEach-Object { [ordered]@{ value = $_.name; label = ('{0} ({1})' -f $_.name, (Get-Prop $_ 'cluster' '-')) } } }
+        'vms' {
+            $ps = Get-Prop $src 'powerState'
+            $cl = if ((Get-Prop $src 'byCluster' $false)) { [string](Get-Prop $Values (Get-Prop $src 'clusterInput' 'Cluster')) } else { '' }
+            @($inv.vms) | Where-Object { (-not $ps -or (Get-Prop $_ 'powerState') -eq $ps) -and (-not $cl -or (Get-Prop $_ 'cluster') -eq $cl) } |
+                ForEach-Object { [ordered]@{ value = $_.name; label = ('{0} ({1})' -f $_.name, (Get-Prop $_ 'cluster' '-')) } }
+        }
+        'hosts' {
+            if (-not $inv.Contains('hosts')) { throw "The inventory of $siteCode predates host collection. An Admin must run an inventory refresh." }
+            $cl = [string](Get-Prop $Values (Get-Prop $src 'clusterInput' 'Cluster'))
+            $allowedClusters = @(Get-Prop $defaults 'allowedClusters' @())
+            $want = Get-Prop $src 'state'        # connected | maintenance (optional)
+            @($inv.hosts) | Where-Object { -not $cl -or $_.cluster -eq $cl } |
+                Where-Object { -not $allowedClusters -or $allowedClusters -contains $_.cluster } |
+                Where-Object { -not $want -or ($want -eq 'maintenance' -and $_.maintenance) -or ($want -eq 'connected' -and -not $_.maintenance -and $_.connectionState -eq 'Connected') } |
+                ForEach-Object {
+                    $st = if ($_.maintenance) { 'maintenance' } else { [string]$_.connectionState }
+                    [ordered]@{ value = $_.name; label = ('{0} - {1} - ESXi {2} build {3} - {4}' -f $_.name, (Get-Prop $_ 'cluster' '-'), $_.version, $_.build, $st) }
+                }
+        }
+        'vdSwitches' {
+            if (-not $inv.Contains('vdSwitches')) { throw "The inventory of $siteCode predates switch collection. An Admin must run an inventory refresh." }
+            @($inv.vdSwitches) | ForEach-Object { [ordered]@{ value = $_.name; label = ('{0} (v{1}, {2} hosts)' -f $_.name, $_.version, $_.hosts) } }
+        }
+        'storageDevices' {
+            $cl = [string](Get-Prop $Values (Get-Prop $src 'clusterInput' 'Cluster'))
+            if (-not $cl) { return @() }
+            @(Get-PortalStorageDeviceOption -Site $siteCode -Cluster $cl)
+        }
     }
 
     $rows = @($rows)
     if ($filter) { $rows = @($rows | Where-Object { $_.value -match $filter }) }
-    if ($type -eq 'datastores') { return $rows }        # already ordered by free space (most free first)
+    if ($type -in 'datastores', 'storageDevices') { return $rows }        # already ordered
     return @($rows | Sort-Object { $_.label })
 }
 

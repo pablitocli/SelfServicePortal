@@ -292,7 +292,26 @@ Returns `{ "id": "...", "status": "Queued" | "Rejected" | "Cancelled" }`.
 - `cancel`: the requester or an Admin, while the request is `PendingApproval` or `Queued`.
 - Not allowed, not found or wrong state: `409` with the reason.
 
+### `GET /api/requests/:id/reports/:file`
+
+S (same visibility). Serves an HTML or CSV report produced by the job (`data/reports/<id>/`). File names must match `^[A-Za-z0-9][A-Za-z0-9._-]{0,150}\.(html|csv)$`. HTML is served with `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src data:` and `nosniff`; CSV as an attachment. `GET /api/requests/:id` lists the files in `reports: [{name, type, sizeKB}]`.
+
+### `GET /api/storage/scan?itemId=&site=&cluster=`
+
+S, for an item the caller can access that has a `storageDevices` input. Returns `{ state, running, scannedAt, lastRescanAt, lastRescanBy, cooldownSeconds, cooldownMinutes, lockedBy, devices, error }`.
+
+### `POST /api/storage/rescan`
+
+S + **re-auth**. Request: `{ "itemId": "datastore-create", "site": "DC1", "cluster": "CL-APP-01" }`. Starts an out-of-process HBA + VMFS rescan of every connected host of the cluster and refreshes the device list. Returns the scan state. `409` while a scan or a storage job runs on that cluster; `429` during the cool-down (`operations.storage.rescanCooldownMinutes`). Audited as `storage.rescan` with the client IP.
+
 ## 8. Administration
+
+### Data files
+
+| Route | Body | Response |
+|---|---|---|
+| `GET /api/admin/datafiles` | | `catalog.manage`. `{ files: [{name, title, file, updated, content}] }` for `software`, `versionBaseline`, `hardeningBaseline`, `backup`. |
+| `POST /api/admin/datafiles/:name` | `{ json: "<file content>", validateOnly?: true }` | `catalog.manage`. `validateOnly`: `{ valid, errors[] }`. Save (re-auth): `{ saved, file }`; invalid: `422` with `fields.errors`. The previous version is kept in `config/_backup/`. |
 
 ### Catalog editor and handlers
 

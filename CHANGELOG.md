@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-05
+
+### Added
+- **21 operational catalog items (25 item files)**, each with a handler and offline tests: distributed port group, DRS rules, vMotion, host maintenance mode, decommission with quarantine and purge, snapshot clean-up, isolated test clone, right-sizing report, SQL Server 2022 unattended install, Windows roles (including MSDTC), agent baseline, AlmaLinux baseline, vSphere health, version compliance, hardening compliance, certificate expiry, capacity forecast, vendor-agnostic backup policy (vSphere tag), cloud cost reports and power actions (AWS / Azure), three-tier blueprint, and new datastore (VMFS / NFS, optional datastore cluster). See [docs/roadmap.md](docs/roadmap.md#40-delivered-in-110).
+- **Storage rescan controls**: the LUN list of *New datastore* comes from an explicit **Rescan storage** action that requires a recent authentication (5 minutes), runs once per cluster at a time, has a 10-minute cool-down (`operations.storage.rescanCooldownMinutes`) and is audited with user, time and IP. Requests of re-authenticated items keep the evidence (`authorization`).
+- **Reports**: handlers write HTML + CSV reports (`automation/lib/Portal.Report.psm1`); the request page lists them and the portal serves them with a script-free CSP.
+- **Admin > Data files**: software repository (Approved / Pending / Retired packages; the backup agent stays Pending), version baseline, hardening baseline and backup policies, validated on save with a backup copy.
+- New lookup sources: `hosts`, `vdSwitches`, `storageDevices`, `softwareSets`, `backupPolicies`; `vms` filters by power state and cluster.
+- Inventory collects hosts (version, build, maintenance), distributed switches, VM sizing, and a daily capacity sample (`data/inventory/history/<SITE>.jsonl`) for the forecast.
+- `operations` configuration section; job context gains `ReportDir`, `Approval`, `Authorization`, `Operations`, `Teams`, `ItemId`.
+- Guest operations library (`automation/lib/Portal.Guest.psm1`) and backup connector templates (`catalog/_connectors/backup/`, not active).
+- `tests/Invoke-HandlerTests.ps1` (offline handler tests with PowerCLI / cloud stubs) and the item contract `docs/dev/ITEM-CONTRACT.md`.
+
+### Changed
+- Single-option lookups are pre-selected only for required inputs.
+- `.gitignore` ignores every live `config/*.json` (only `*.default.json` is tracked).
+
 ## [1.0.2] - 2026-10-05
 
 ### Security
@@ -94,7 +111,8 @@ First public release.
 - Offline smoke test suite (`tests/Invoke-SmokeTest.ps1`).
 - Technical documentation in `docs/`.
 
-[Unreleased]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/OWNER/SelfServicePortal/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/OWNER/SelfServicePortal/releases/tag/v1.0.0

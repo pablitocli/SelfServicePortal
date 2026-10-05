@@ -308,7 +308,7 @@
         s.innerHTML = `<option value="">${opts.length ? 'Select...' : 'No options available'}</option>` +
           opts.map((o) => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('');
         if (f.default !== undefined && opts.some((o) => o.value === String(f.default))) s.value = String(f.default);
-        else if (opts.length === 1) s.value = opts[0].value;
+        else if (opts.length === 1 && f.required) s.value = opts[0].value;
         s.disabled = false;
       } catch (e) {
         s.innerHTML = '<option value="">Unavailable</option>';
@@ -330,6 +330,44 @@
       const e = el(f.name);
       e.addEventListener('change', async () => { setFieldError(f.name, ''); await cascade(f.name); });
     });
+    // Storage rescan buttons.
+    const storageInputs = item.inputs.filter((f) => f.source && f.source.type === 'storageDevices');
+    const scanTarget = (f) => { const v = readValues(); return { site: v[(f.source.dependsOn || ['Site'])[0]], cluster: v[f.source.clusterInput || 'Cluster'] }; };
+    async function showScanState(f) {
+      const btn = document.getElementById(`rs_${f.name}`); const info = document.getElementById(`rss_${f.name}`);
+      const t = scanTarget(f);
+      if (!t.site || !t.cluster) { btn.disabled = true; info.textContent = 'Select the cluster first.'; return null; }
+      try {
+        const st = await api(`/api/storage/scan?itemId=${encodeURIComponent(item.id)}&site=${encodeURIComponent(t.site)}&cluster=${encodeURIComponent(t.cluster)}`, { background: true });
+        const last = st.lastRescanAt ? `Last rescan ${fmtDate(st.lastRescanAt)} by ${st.lastRescanBy}.` : 'Never rescanned from the portal.';
+        const failed = st.state === 'Failed' && st.error ? ` Last scan failed: ${st.error}` : '';
+        if (st.running) { btn.disabled = true; info.textContent = `Scanning... (started by ${st.lockedBy})`; }
+        else if (st.cooldownSeconds > 0) { btn.disabled = true; info.textContent = `${last} Next rescan in ${Math.ceil(st.cooldownSeconds / 60)} min.${failed}`; }
+        else { btn.disabled = false; info.textContent = `${last}${failed}`; }
+        return st;
+      } catch (e) { btn.disabled = true; info.textContent = e.message; return null; }
+    }
+    for (const f of storageInputs) {
+      document.getElementById(`rs_${f.name}`).addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget; btn.disabled = true; setFieldError(f.name, '');
+        const t = scanTarget(f);
+        try {
+          await api('/api/storage/rescan', { method: 'POST', body: { itemId: item.id, site: t.site, cluster: t.cluster } });
+          toast(`Storage rescan started on ${t.cluster}.`);
+          for (let i = 0; i < 200; i++) {
+            await new Promise((ok) => setTimeout(ok, 3000));
+            const st = await showScanState(f);
+            if (!st || !st.running) break;
+          }
+          await loadOptions(f.name);
+        } catch (e) { setFieldError(f.name, e.message); }
+        await showScanState(f);
+      });
+      const cl = el(f.source.clusterInput || 'Cluster');
+      if (cl) cl.addEventListener('change', () => showScanState(f));
+      showScanState(f);
+    }
+
     applyVisibility();
     for (const f of item.inputs) if ((f.source && !(f.source.dependsOn || []).length) || f.type === 'credential') await loadOptions(f.name);
 
@@ -370,7 +408,10 @@
       case 'ipv4': ctl = `<input id="${id}" type="text" inputmode="decimal" placeholder="10.0.0.10" value="${esc(def)}">`; break;
       default: ctl = `<input id="${id}" type="text" value="${esc(def)}" placeholder="${esc(f.placeholder || '')}" ${f.validation?.maxLength ? `maxlength="${esc(f.validation.maxLength)}"` : ''}>`;
     }
-    return `<div class="field${wide}" id="w_${f.name}"><label for="${id}">${esc(f.label)}${req}</label>${ctl}${help}<div class="err"></div></div>`;
+    // Storage devices (New datastore): explicit rescan; every rescan asks for re-authentication and is rate limited per cluster.
+    const rescan = f.source && f.source.type === 'storageDevices'
+      ? `<div class="rescan-row"><button type="button" class="btn btn-sm" id="rs_${f.name}" disabled>Rescan storage</button><span class="muted small" id="rss_${f.name}"></span></div>` : '';
+    return `<div class="field${wide}" id="w_${f.name}"><label for="${id}">${esc(f.label)}${req}</label>${ctl}${rescan}${help}<div class="err"></div></div>`;
   }
 
   /* ---------------- request lists ---------------- */
@@ -417,6 +458,9 @@
           ${r.error ? `<div class="alert alert-err"><b>Failure:</b> ${esc(r.error)}</div>` : ''}
           ${result.length ? `<section class="card card-pad"><h2 class="section-title">Result</h2><dl class="kv">${result.map(([k, v]) =>
             `<dt>${esc(k)}</dt><dd>${Array.isArray(v) ? `<ul style="margin:0;padding-left:18px">${v.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : esc(typeof v === 'object' ? JSON.stringify(v) : v)}</dd>`).join('')}</dl></section>` : ''}
+          ${(r.reports || []).length ? `<section class="card card-pad"><h2 class="section-title">Reports</h2><ul class="report-list">${r.reports.map((f) =>
+            `<li><a href="/api/requests/${encodeURIComponent(r.id)}/reports/${encodeURIComponent(f.name)}" target="_blank" rel="noopener">${esc(f.name)}</a>
+             <span class="tag">${esc(String(f.type).toUpperCase())}</span> <span class="muted small">${esc(f.sizeKB)} KB</span></li>`).join('')}</ul></section>` : ''}
           <section class="card card-pad"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
             <h2 class="section-title" style="margin:0">Execution log</h2><span class="muted" id="logState"></span></div>
             <div class="console" id="log">${['PendingApproval', 'Queued', 'Rejected', 'Cancelled'].includes(r.status) ? 'The job has not started.' : 'Loading...'}</div></section>

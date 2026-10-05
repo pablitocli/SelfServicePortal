@@ -1,0 +1,80 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "report-certificates",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Certificate expiry report",
+  "category": "Reports",
+  "icon": "security",
+  "summary": "List the TLS certificates of vCenter, every ESXi host and extra endpoints with days to expiry.",
+  "description": "Read-only. The portal server opens a TLS connection to vCenter, every ESXi host and the optional endpoints (port 443 unless given) and reads the presented certificate: subject, issuer, expiry, thumbprint. Status EXPIRING / CRITICAL / EXPIRED follows the warning days and operations.certificates.criticalDays; unreachable endpoints are listed as ERROR.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Security",
+    "Certificates",
+    "Report"
+  ],
+  "estimatedDuration": "1-5 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "Infrastructure"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "sites": [
+    "DC1",
+    "DC2"
+  ],
+  "execution": {
+    "handler": "Get-VsphereCertificateReport.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "AdditionalEndpoints",
+      "label": "Additional endpoints",
+      "type": "textarea",
+      "group": "Options",
+      "required": false,
+      "placeholder": "nsx01.corp.example.com\nbackup01.corp.example.com:9443",
+      "help": "One host or host:port per line (maximum 50). Port 443 when omitted.",
+      "validation": {
+        "maxLength": 6000
+      }
+    },
+    {
+      "name": "WarningDays",
+      "label": "Warn when expiring within (days)",
+      "type": "number",
+      "group": "Options",
+      "required": true,
+      "default": 60,
+      "help": "Default from operations.certificates.warningDays.",
+      "validation": {
+        "min": 1,
+        "max": 3650
+      }
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "vm-vmotion",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "VM Migration (vMotion)",
+  "category": "Datacenter operations",
+  "icon": "vm",
+  "summary": "Move a VM to another cluster of the same datacenter, optionally to another datastore.",
+  "description": "Live-migrates the VM (vMotion / cross-cluster, optionally with Storage vMotion) to the connected host of the target cluster with the lowest memory usage. Pre-checks: EVC compatibility, port groups available on the target hosts, datastore free-space floor of the site and memory headroom of the target cluster. Runs as soon as it is approved; a scheduled migration window is planned for a later version.",
+  "owner": "Infrastructure Operations",
+  "tags": ["vSphere", "vMotion", "Migration", "Placement"],
+  "estimatedDuration": "5-60 min",
+  "access": { "roles": ["Requester", "Approver", "Admin"], "teams": ["Infrastructure"] },
+  "approval": { "required": true, "approverRoles": ["Approver", "Admin"] },
+  "sites": ["DC1", "DC2"],
+  "execution": {
+    "handler": "Move-VsphereVm.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 180,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    { "name": "Site", "label": "Datacenter", "type": "select", "group": "Source", "required": true, "source": { "type": "sites" } },
+    { "name": "VMName", "label": "Virtual machine", "type": "select", "group": "Source", "required": true,
+      "source": { "type": "vms", "dependsOn": ["Site"] } },
+    { "name": "Cluster", "label": "Target cluster", "type": "select", "group": "Target", "required": true,
+      "source": { "type": "clusters", "dependsOn": ["Site"] } },
+    { "name": "TargetDatastore", "label": "Target datastore", "type": "select", "group": "Target", "required": false,
+      "help": "Leave empty to keep the current datastore (it must be shared with the target cluster).",
+      "source": { "type": "datastores", "dependsOn": ["Site", "Cluster"] } },
+    { "name": "KeepPortGroups", "label": "Keep port groups (check every target host)", "type": "boolean", "group": "Target", "default": true,
+      "help": "The VM keeps its networks. On: every connected target host must have them (DRS can move the VM later). Off: only the destination host is checked." },
+    { "name": "ChangeTicket", "label": "Change ticket", "type": "text", "group": "Governance", "required": true, "validation": { "maxLength": 30 } }
+  ]
+}

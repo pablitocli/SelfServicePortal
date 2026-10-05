@@ -174,7 +174,12 @@ Inventory sources read the **inventory cache** (`data/inventory/<SITE>.json`), w
 | `portgroups` | inventory | name / `name (VLAN n)` | Restricted by the regex in `sites[].defaults.portgroupFilter`. | site input (mandatory) |
 | `templates` | inventory | name / name | None. | site input (mandatory) |
 | `folders` | inventory | path / path (`Datacenter/Folder/Sub`) | None. The handler receives the path (see `Resolve-PortalFolder` in `New-VsphereVM.ps1`). | site input (mandatory) |
-| `vms` | inventory | name / `name (cluster)` | None. Use `filter` to restrict, for example `^(?!DECOM-)`. | site input (mandatory) |
+| `vms` | inventory | name / `name (cluster)` | `source.powerState` (`PoweredOn`, `PoweredOff`, `Suspended`); `source.byCluster: true` keeps VMs of the selected `Cluster`. Use `filter` to restrict, for example `^(?!DECOM-)`. | site input (mandatory) |
+| `hosts` | inventory | name / `name - cluster - ESXi version build - state` | Scoped to the value of the input named `Cluster` (or `source.clusterInput`) and to `allowedClusters`. `source.state`: `connected` or `maintenance`. Needs an inventory collected by 1.1.0 or later. | site input (mandatory) |
+| `vdSwitches` | inventory | name / `name (vX, N hosts)` | Distributed switches. | site input (mandatory) |
+| `storageDevices` | storage scan cache (`data/inventory/storage/<SITE>__<cluster>.json`) | canonical name / `naa... - size - vendor model (scanned <time> UTC)` | Unused LUNs that every connected host of the cluster sees. The lookup **never rescans**: the form shows a **Rescan storage** button (see [4.1](#41-storage-devices-and-rescans)). Put `"requireReauth": true` on the input. | site input and the cluster input |
+| `softwareSets` | `config/software.json` (Admin > Data files) | set id / `name (N approved package(s), M not approved yet)` | `source.os`: `windows` or `linux`. | none |
+| `backupPolicies` | `config/backup.json` (Admin > Data files) | policy id / `id - description` | Policies with `enabled: false` are hidden. | none |
 | `awsSubnets` | Admin > Cloud connections → AWS subnets | subnet id / `label (id)` | AWS connection must be enabled. | none |
 | `awsInstanceTypes` | AWS allowed instance types | type / type | AWS connection must be enabled. | none |
 | `azureSubnets` | Azure subnets | name / `name (vnet)` | Azure connection must be enabled. | none |
@@ -186,6 +191,15 @@ Common rules:
 - Results are sorted by label.
 - The **same lookup runs again server-side** when the request is submitted. A value that is not in the list at that moment is rejected, so a crafted request cannot reference an object outside the allowed set.
 - Cloud lookups read the lists configured in Admin > Cloud connections. They do not query the cloud API.
+
+### 4.1 Storage devices and rescans
+
+A storage rescan touches every host of a cluster, so the portal controls it:
+
+- Rescans start only from the **Rescan storage** button (`POST /api/storage/rescan`). Every rescan requires a valid, recent authentication: the user must have signed in or confirmed the password (and OTP) within the re-authentication window (`security.session.reauthWindowMinutes`, default 5 minutes).
+- One scan or rescan per cluster at a time (lock), and a cool-down between rescans (`operations.storage.rescanCooldownMinutes`, default 10). The form shows the last rescan, who started it and when the next one is allowed.
+- The scan runs out of process (`automation/Get-PortalStorageDevices.ps1`). The audit log records `storage.rescan` with the user, time and client IP, and the scan state keeps the last 50 rescans.
+- Job handlers take the same per-cluster lock with `Enter-PortalStorageLock` / `Exit-PortalStorageLock` (module `Portal.Storage`).
 
 ## 5. Validation rules enforced by the portal
 
@@ -202,7 +216,7 @@ Common rules:
 9. Every input has a valid, unique `name`, a `label` and a known `type`.
 10. Every input (except VM notes fields) matches a handler parameter.
 11. A `select` input has `options` or a `source`.
-12. `source.type` is known. Every `dependsOn` entry references an input declared earlier. Inventory sources (`clusters`, `datastores`, `datastoreClusters`, `portgroups`, `templates`, `folders`, `vms`) depend on the site input.
+12. `source.type` is known. Every `dependsOn` entry references an input declared earlier. Inventory sources (`clusters`, `datastores`, `datastoreClusters`, `portgroups`, `templates`, `folders`, `vms`, `hosts`, `vdSwitches`, `storageDevices`) depend on the site input.
 13. `source.filter` and `validation.pattern` are valid regular expressions.
 14. `visibleWhen.field` references an input declared earlier.
 15. Every **mandatory** handler parameter (except `Context`) is provided by an input, a fixed parameter or a credential binding.
@@ -237,6 +251,21 @@ A handler is a PowerShell 7 script. The runner (`automation/Invoke-CatalogJob.ps
 | `Cloud` | Cloud session (`execution.cloud`). AWS: `@{ Provider='aws'; Region; Credential; Settings }`. Pass `-Region` and `-Credential` to AWS.Tools cmdlets. Azure: `@{ Provider='azure'; Location; SubscriptionId; Account; Settings }`. The Az context is process-scoped and already selected. `Settings` never contains secrets. |
 | `RollbackOnFailure` | Value of `jobs.rollbackOnFailure` (default `true`). |
 | `PortalRoot` | Portal installation folder. |
+| `ReportDir` | Folder for reports of this request (`data/reports/<REQ-ID>`). Use `New-PortalReport`. |
+| `Teams` | Teams of the item. |
+| `ItemId` | Catalog item id. |
+| `Approval` | `@{ required; decision; decidedBy; decidedAt; comment }`. |
+| `Authorization` | Re-authentication evidence when the item requires it: `@{ by; at; ip; reauthenticated }`. `$null` otherwise. |
+| `Operations` | The `operations` section of the configuration (storage, decommission, snapshots, test clones, right-sizing, certificates, capacity, power schedules, reports). |
+
+#### Libraries available to handlers
+
+| Module | Imported by the runner | Functions |
+|---|---|---|
+| `automation/lib/Portal.Report.psm1` | yes | `New-PortalReport -Title -Subtitle -Context -Sections -Summary`, `New-PortalReportSection -Title -Rows -Columns -Note`. Writes a self-contained HTML file and one CSV per section into `Context.ReportDir`. Columns named `Status`, `Result` or `Compliance` are coloured by keyword (OK / PASS / COMPLIANT, WARN / EXPIRING / NOT SET, FAIL / CRITICAL / ERROR / EXPIRED / NON-COMPLIANT). The request page lists the files; they are served with a CSP that forbids scripts. |
+| `modules/Portal.Data.psm1` | yes | `Get-PortalDataFile -Name software\|versionBaseline\|hardeningBaseline\|backup`, `Get-PortalSoftwareSet -Id [-Os]` (approved packages + skipped ones). |
+| `modules/Portal.Storage.psm1` | yes | `Enter-PortalStorageLock`, `Exit-PortalStorageLock`, `Get-PortalStorageState`. |
+| `automation/lib/Portal.Guest.psm1` | no (import it from `Context.PortalRoot`) | `Invoke-PortalGuestScript` (VMware Tools guest operations with a reliable exit code and secret masking), `Wait-PortalGuestReady`, `Resolve-PortalGuestVM`, `ConvertTo-PortalGuestLiteral`, `ConvertTo-PortalBashLiteral`. |
 
 The runner disconnects the vCenter and cloud sessions after the handler finishes, whether it succeeded or failed.
 
@@ -344,6 +373,10 @@ pwsh -File ./tools/Test-CatalogItem.ps1            # every item in catalog/items
 The tool runs the same validator as the portal, including handler parsing and parameter matching. Its exit code is the number of failing items, which makes it usable in CI. Run it on the portal server or against a copy of its `config/`, because sites and teams are checked against the configuration.
 
 Run the offline smoke test after changes to shared code: `pwsh -File ./tests/Invoke-SmokeTest.ps1`.
+
+### 10.1b Offline handler tests
+
+`tests/Invoke-HandlerTests.ps1` validates every item and runs `tests/handlers/*.Tests.ps1`. Each test file defines PowerCLI / AWS / Azure **stub functions** with the names of the cmdlets the handler calls and runs the real handler against them (`Invoke-TestHandler`), so no vCenter or cloud account is needed. Copy an existing test file as a starting point. The working contract for new items is in [dev/ITEM-CONTRACT.md](dev/ITEM-CONTRACT.md).
 
 ### 10.2 Dry run outside the portal
 

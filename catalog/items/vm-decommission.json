@@ -1,0 +1,106 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "vm-decommission",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Decommission VM (quarantine)",
+  "category": "Datacenter operations",
+  "icon": "vm",
+  "summary": "Shut down, isolate and quarantine a VM before it is permanently deleted.",
+  "description": "Nothing is deleted. The VM is shut down gracefully, renamed with the decommission prefix, its network adapters are disconnected, it is moved to the quarantine folder and its backup policy tag is removed. A 'Portal.Decommission' annotation records the request and the purge date; the 'Purge decommissioned VMs' item deletes it after the quarantine period. Restore = rename back and reconnect the adapters.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Lifecycle",
+    "Decommission"
+  ],
+  "estimatedDuration": "2-10 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "Infrastructure"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "security": {
+    "requireReauth": true
+  },
+  "sites": [
+    "DC1",
+    "DC2"
+  ],
+  "execution": {
+    "handler": "Start-VsphereDecommission.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "Reason",
+      "label": "Reason for decommission",
+      "type": "textarea",
+      "group": "Decommission",
+      "required": true,
+      "help": "Application retired, replaced by..., owner confirmation. Kept in the job log.",
+      "validation": {
+        "maxLength": 500
+      }
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Decommission",
+      "required": true,
+      "validation": {
+        "maxLength": 30
+      }
+    },
+    {
+      "name": "ConfirmName",
+      "label": "Type the VM name to confirm",
+      "type": "text",
+      "group": "Decommission",
+      "required": true,
+      "help": "Must match the selected VM name exactly (case-insensitive).",
+      "validation": {
+        "maxLength": 80
+      }
+    }
+  ]
+}

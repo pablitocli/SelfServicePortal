@@ -45,6 +45,7 @@ Editing rules:
 | `inventory` | object | file | [3.10](#310-inventory) |
 | `sites` | array | Admin > vCenter connections | [3.11](#311-sites) |
 | `clouds` | object | Admin > Cloud connections | [3.12](#312-clouds) |
+| `operations` | object | file | [3.14](#314-operations) |
 | `_migrations` | array | managed by the portal | [3.13](#313-_migrations) |
 
 ---
@@ -393,3 +394,37 @@ Everything else (branding, teams, role mapping, VM notes, policies, security pol
 |---|---|---|
 | `Server.Request.Timeout` | `180` | Seconds Pode waits for a request before answering 408 (vCenter connection tests can take up to 60 s; cloud tests up to 90 s) |
 | `Server.Request.BodySize` | `10MB` | Maximum request body (logo uploads are limited to 512 KB by the portal itself) |
+
+### 3.14 `operations`
+
+Settings used by the operational catalog items (added in 1.1.0; upgrades add the section with these defaults). Handlers receive it as `Context.Operations`. Live.
+
+| Key | Default | Used by | Meaning |
+|---|---|---|---|
+| `storage.rescanCooldownMinutes` | `10` | New datastore | Minimum time between two storage rescans of the same cluster |
+| `storage.lockTimeoutMinutes` | `30` | New datastore | A cluster storage lock older than this is considered stale |
+| `storage.minLunSizeGB` | `1` | New datastore | Smaller devices are not offered |
+| `storage.datastoreNamePattern` | `^[A-Za-z0-9][A-Za-z0-9_-]{2,41}$` | New datastore | Datastore naming convention (the item input carries the same pattern) |
+| `decommission.quarantineFolder` | `Portal-Quarantine` | Decommission, Purge | VM folder for quarantined VMs |
+| `decommission.quarantineDays` | `14` | Decommission | Days before a quarantined VM can be purged |
+| `decommission.renamePrefix` | `DECOM-` | Decommission, Purge | Prefix added to quarantined VMs |
+| `decommission.protectedNamePattern` | `^(vCLS\|vcsa\|vcenter\|nsx)` | Decommission | VMs that can never be decommissioned |
+| `snapshots.defaultMaxAgeDays` | `7` | Snapshot cleanup | Default age limit |
+| `snapshots.protectedDescriptionPattern` | `(?i)keep\|do not delete\|backup` | Snapshot cleanup | Snapshots that are never removed |
+| `testClones.folder` / `isolatedPortgroup` / `maxDays` / `namePrefix` | `Portal-TestClones` / `""` / `7` / `TST-` | Isolated test clone | Where clones go; when `isolatedPortgroup` is set (name or regex), clones can only connect to it |
+| `rightSizing.lookbackDays`, `cpuLowPercent`, `cpuHighPercent`, `memoryLowPercent`, `memoryHighPercent` | `30`, `20`, `80`, `30`, `85` | Right-sizing report | Thresholds on the 95th percentile |
+| `certificates.warningDays` / `criticalDays` | `60` / `30` | Certificate report | Expiry thresholds |
+| `capacity.forecastDays` / `thresholdPercent` | `90` / `85` | Capacity forecast | Forecast horizon and threshold |
+| `powerSchedules.tagKey` / `timeZone` | `PowerSchedule` / `UTC` | Cloud power action, cost report | Tag that selects instances |
+| `reports.retentionDays` | `180` | Reports | Retention of `data/reports` (informational; clean-up is an operations task) |
+
+### 3.15 Data files
+
+Some items read editable JSON files in `config/` instead of the main configuration. They are created from `config/<name>.default.json` at first start, never overwritten by upgrades, and edited in **Admin > Data files** (`catalog.manage`; saving asks for the password and keeps the previous version in `config/_backup`).
+
+| File | Used by | Content |
+|---|---|---|
+| `software.json` | Agent baseline, Three-tier blueprint | Software repository: `repository.windowsBase` / `linuxBase`, `packages[]` (`id`, `name`, `os`, `version`, `installer`, `installArgs`, `verify { type: service\|file\|command\|package, value }`, `status: Approved\|Pending\|Retired`) and `sets[]` (`id`, `name`, `os`, `packages`). Only **Approved** packages are installed. The backup agent ships as *Pending* until a backup product is approved. |
+| `version-baseline.json` | Version compliance | `targets` (vCenter / ESXi `minBuild`, VMware Tools `minVersion`, VM hardware `minVersion`) and `advisories[]` (`id`, `product`, `fixedBuild`, optional `appliesToVersion`). 0 / empty = not set. |
+| `hardening-baseline.json` | Hardening compliance | `esxiAdvancedSettings[]`, `esxiServices[]`, `vmAdvancedSettings[]` with `operator` `eq\|ne\|le\|ge\|range\|nonEmpty`, `expected`, `defaultCompliant`. Read-only checks. |
+| `backup.json` | Backup policy, Decommission | `connector` (`vsphereTag`; other connectors are templates in `catalog/_connectors/backup/`), `tagCategory` (`Backup-Policy`), `cloudTagName`, `policies[]`. |

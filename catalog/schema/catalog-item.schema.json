@@ -285,6 +285,11 @@
                 "templates",
                 "folders",
                 "vms",
+                "hosts",
+                "vdSwitches",
+                "storageDevices",
+                "softwareSets",
+                "backupPolicies",
                 "awsSubnets",
                 "awsInstanceTypes",
                 "azureSubnets",
@@ -303,6 +308,39 @@
             },
             "minFreeGB": {
               "type": "number"
+            },
+            "clusterInput": {
+              "type": "string",
+              "description": "hosts / storageDevices / vms (byCluster): name of the cluster input (default Cluster)."
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "connected",
+                "maintenance"
+              ],
+              "description": "hosts: only connected (not in maintenance) or only hosts in maintenance."
+            },
+            "powerState": {
+              "type": "string",
+              "enum": [
+                "PoweredOn",
+                "PoweredOff",
+                "Suspended"
+              ],
+              "description": "vms: filter by power state."
+            },
+            "byCluster": {
+              "type": "boolean",
+              "description": "vms: only VMs running on the selected cluster."
+            },
+            "os": {
+              "type": "string",
+              "enum": [
+                "windows",
+                "linux"
+              ],
+              "description": "softwareSets: only sets for this OS."
             }
           }
         },

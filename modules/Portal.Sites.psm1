@@ -206,6 +206,7 @@ function Initialize-PortalConfiguration {
             Write-Host "Created config/$($pair[1]) from defaults." -ForegroundColor Yellow
         }
     }
+    if (Get-Command -Name Initialize-PortalDataFiles -ErrorAction SilentlyContinue) { Initialize-PortalDataFiles }   # software, baselines, backup
     $changes = [System.Collections.Generic.List[string]]::new()
     $cfg = Read-PortalJson -Path (Get-PortalPath -Name Config)
     if (-not $cfg.Contains('automation')) { $changes.Add('automation.allowedHandlerRoots') }
@@ -223,6 +224,7 @@ function Initialize-PortalConfiguration {
     if (-not $cfg.auth.Contains('providers')) { $changes.Add('auth.providers (identity: AD / OpenLDAP over LDAPS)') }
     if (-not $cfg.Contains('security')) { $changes.Add('security (session timeout, password policy, lockout, MFA)') }
     if (-not $cfg.Contains('vault'))    { $changes.Add('vault (credential vault)') }
+    if (-not $cfg.Contains('operations')) { $changes.Add('operations (storage rescan cooldown, decommission quarantine, snapshots, test clones, power schedules)') }
     $itemsDir = Get-PortalPath -Name CatalogItems
     $retired = @('vm-windows-2022.json', 'vm-rhel-9.json') | Where-Object { Test-Path -LiteralPath (Join-Path $itemsDir $_) }
     if ($done -notcontains 'examples-2025' -and $retired) { $changes.Add("retired example items: $($retired -join ', ')") }
@@ -292,6 +294,7 @@ function Initialize-PortalConfiguration {
                 $c.portal.Remove('sessionDurationMinutes')
             }
         }
+        if (-not $c.Contains('operations') -and $def.Contains('operations')) { $c['operations'] = $def.operations }
         if (-not $c.Contains('vault')) { $c['vault'] = if ($def.Contains('vault')) { $def.vault } else { [ordered]@{ keyProvider = 'auto'; maxVersions = 5 } } }
         if (-not $mig.Contains('identity-2026-10')) { $mig.Add('identity-2026-10') }
         if (-not $mig.Contains('clouds-2026-09')) { $mig.Add('clouds-2026-09') }

@@ -1,0 +1,22 @@
+{
+  "_comment": "Targets for the 'Version compliance' report. 0 / empty = target not set (the report shows it as not evaluated). Fill in the builds your organisation has approved. advisories: security advisories with the first fixed build; hosts or vCenters below fixedBuild are flagged.",
+  "targets": {
+    "vcenter": {
+      "minBuild": 0,
+      "label": "approved vCenter build"
+    },
+    "esxi": {
+      "minBuild": 0,
+      "label": "approved ESXi build"
+    },
+    "vmTools": {
+      "minVersion": 0,
+      "label": "VMware Tools version number (ToolsVersion, e.g. 12352)"
+    },
+    "vmHardware": {
+      "minVersion": "",
+      "label": "e.g. vmx-19"
+    }
+  },
+  "advisories": []
+}

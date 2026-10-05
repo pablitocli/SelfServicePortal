@@ -350,5 +350,51 @@
     "vmnotes-2026-10",
     "team-scopes-2026-10",
     "identity-2026-10"
-  ]
+  ],
+  "operations": {
+    "storage": {
+      "rescanCooldownMinutes": 10,
+      "lockTimeoutMinutes": 30,
+      "minLunSizeGB": 1,
+      "datastoreNamePattern": "^[A-Za-z0-9][A-Za-z0-9_-]{2,41}$"
+    },
+    "decommission": {
+      "quarantineFolder": "Portal-Quarantine",
+      "quarantineDays": 14,
+      "renamePrefix": "DECOM-",
+      "protectedNamePattern": "^(vCLS|vcsa|vcenter|nsx)"
+    },
+    "snapshots": {
+      "defaultMaxAgeDays": 7,
+      "protectedDescriptionPattern": "(?i)keep|do not delete|backup"
+    },
+    "testClones": {
+      "folder": "Portal-TestClones",
+      "isolatedPortgroup": "",
+      "maxDays": 7,
+      "namePrefix": "TST-"
+    },
+    "rightSizing": {
+      "lookbackDays": 30,
+      "cpuLowPercent": 20,
+      "cpuHighPercent": 80,
+      "memoryLowPercent": 30,
+      "memoryHighPercent": 85
+    },
+    "certificates": {
+      "warningDays": 60,
+      "criticalDays": 30
+    },
+    "capacity": {
+      "forecastDays": 90,
+      "thresholdPercent": 85
+    },
+    "powerSchedules": {
+      "tagKey": "PowerSchedule",
+      "timeZone": "UTC"
+    },
+    "reports": {
+      "retentionDays": 180
+    }
+  }
 }

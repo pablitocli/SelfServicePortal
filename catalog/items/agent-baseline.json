@@ -1,0 +1,103 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "agent-baseline",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Agent baseline",
+  "category": "Software installation",
+  "icon": "security",
+  "summary": "Install the approved agents of a software baseline set (monitoring, EDR, patching, backup) in a VM.",
+  "description": "Runs inside the guest through VMware Tools (no WinRM / SSH). Installs only the packages of the set that are Approved in the software repository (Admin > Data files > software); Pending or Retired packages are skipped and listed in the result. Each package is verified before and after installation, so a re-run only installs what is missing.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "Agents",
+    "Baseline",
+    "Monitoring",
+    "EDR"
+  ],
+  "estimatedDuration": "5-20 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "Infrastructure"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "sites": [
+    "DC1",
+    "DC2"
+  ],
+  "execution": {
+    "handler": "Install-GuestAgentBaseline.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 90,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "help": "Powered-on VM with VMware Tools running.",
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ],
+        "powerState": "PoweredOn"
+      }
+    },
+    {
+      "name": "BaselineSet",
+      "label": "Baseline set",
+      "type": "select",
+      "group": "Software",
+      "required": true,
+      "help": "Must match the guest OS (Windows or Linux set).",
+      "source": {
+        "type": "softwareSets"
+      }
+    },
+    {
+      "name": "GuestCredential",
+      "label": "Guest administrator credential",
+      "type": "credential",
+      "group": "Target",
+      "required": true,
+      "help": "Windows: local administrator (domain account to read UNC sources). Linux: root or a user with passwordless sudo.",
+      "vaultTags": [
+        "guest-windows",
+        "guest-linux"
+      ]
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Governance",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

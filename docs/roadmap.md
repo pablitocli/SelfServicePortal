@@ -1,6 +1,6 @@
 # Roadmap
 
-This document is the agreed development plan for the Self-Service Portal. Phase 1 is complete and is released as version 1.0.0 (see [CHANGELOG.md](../CHANGELOG.md)). **Everything in Phases 2, 3 and 4 is planned work and does not exist in the current release.** Scope and order can change. Phase 4 lists candidates, not commitments.
+This document is the agreed development plan for the Self-Service Portal. Phase 1 was released as version 1.0.0. The 21 Phase 3 catalog items, and the parts of Phase 2 they need, were released in version 1.1.0 (see [CHANGELOG.md](../CHANGELOG.md) and [section 4.0](#40-delivered-in-110)). Scheduling (E1), report history, notifications and the storage-array / backup-product connectors are still planned. Phase 4 lists candidates, not commitments.
 
 ## Contents
 
@@ -19,8 +19,8 @@ This document is the agreed development plan for the Self-Service Portal. Phase 
 | Phase | Theme | Status |
 |---|---|---|
 | 1 | Credential vault, identity providers, user security, Linux/OVA, documentation | **Done** (1.0.0) |
-| 2 | Platform enablers: scheduling, reports, software repository, dry-run, orchestration, connectors | Planned |
-| 3 | 21 new catalog items | Planned. Most items depend on Phase 2 enablers. |
+| 2 | Platform enablers: scheduling, reports, software repository, dry-run, orchestration, connectors | **Partly done** (1.1.0): reports per request, software repository and baselines (Admin > Data files), dry run per item, blueprint orchestration with rollback, backup connector templates. Planned: E1 scheduling, report history. |
+| 3 | 21 new catalog items | **Done** (1.1.0), 25 items in total. Validated offline against stubs; validate each in a lab site before production. |
 | 4 | API tokens, notifications, HA, key rotation, external vaults | Candidates |
 
 ## 2. Phase 1: Foundation and security (released)
@@ -33,7 +33,17 @@ This document is the agreed development plan for the Self-Service Portal. Phase 
 | Linux and appliance | Linux support and an OVA appliance (AlmaLinux 9, built with Packer). See [installation-linux.md](installation-linux.md) and [ova.md](ova.md). |
 | Documentation | Technical documentation set under `docs/`. |
 
-## 3. Phase 2: Platform enablers (planned)
+## 3. Phase 2: Platform enablers (partly delivered)
+
+| # | Status in 1.1.0 |
+|---|---|
+| E1 | Planned. Report items run on demand; the cost / power items note scheduling as future work. |
+| E2 | Delivered without history: each request lists its HTML / CSV reports (`data/reports/<REQ-ID>`). |
+| E3 | Delivered as data files (`config/software.json`, baselines, backup policies) edited in Admin > Data files. |
+| E4 | Delivered per item: destructive bulk items (snapshot clean-up, purge, cloud power action) default to `DryRun = true`. |
+| E5 | Delivered inside the three-tier blueprint handler (steps, sub-handlers, reverse-order rollback). A generic orchestrator is still planned. |
+| E6 | Backup connector templates (`catalog/_connectors/backup/`), not active. The active connector is the vendor-agnostic vSphere tag. |
+
 
 These capabilities are prerequisites for many Phase 3 items.
 
@@ -46,7 +56,39 @@ These capabilities are prerequisites for many Phase 3 items.
 | E5 | Step orchestrator | A simple orchestrator for multi-step items, with rollback of the steps already completed. |
 | E6 | Pluggable connectors | Connector interface for external systems, starting with backup products and storage arrays. |
 
-## 4. Phase 3: New catalog items (planned)
+## 4. Phase 3: New catalog items (delivered in 1.1.0)
+
+### 4.0 Delivered in 1.1.0
+
+| # | Item id | Handler | Team | Approval / re-auth |
+|---|---|---|---|---|
+| 1 | `dpg-create` | `New-VsphereDistributedPortgroup.ps1` | Infrastructure | Approval |
+| 2 | `drs-rule` | `New-VsphereDrsRule.ps1` | Infrastructure | Approval |
+| 3 | `vm-vmotion` | `Move-VsphereVm.ps1` | Infrastructure | Approval |
+| 4 | `host-maintenance` | `Set-VsphereHostMaintenance.ps1` | Infrastructure (Admin only) | Re-authentication |
+| 5 | `vm-decommission` | `Start-VsphereDecommission.ps1` | Infrastructure | Approval + re-authentication |
+| 5b | `vm-decommission-purge` | `Remove-VsphereDecommissioned.ps1` | Infrastructure (Admin only) | Approval + re-authentication, dry run by default |
+| 6 | `snapshot-cleanup` | `Invoke-VsphereSnapshotCleanup.ps1` | Infrastructure | Approval, dry run by default |
+| 7 | `vm-test-clone` | `New-VsphereTestClone.ps1` | Infrastructure | Approval |
+| 8 | `vm-rightsizing` | `Get-VsphereRightSizing.ps1` | Infrastructure | none (advisory report; apply with *Resize VM*) |
+| 9 | `sql-server-2022` | `Install-GuestSqlServer.ps1` | Infrastructure | Approval |
+| 10 | `windows-roles` | `Install-GuestWindowsFeature.ps1` | Infrastructure | Approval |
+| 11 | `agent-baseline` | `Install-GuestAgentBaseline.ps1` | Infrastructure | none (only Approved packages) |
+| 12 | `almalinux-baseline` | `Set-GuestAlmaLinuxBaseline.ps1` | Infrastructure | Approval |
+| 13 | `report-vsphere-health` | `Get-VsphereHealthReport.ps1` | Infrastructure | none |
+| 14 | `report-version-compliance` | `Get-VsphereVersionCompliance.ps1` | Infrastructure | none |
+| 15 | `report-hardening` | `Get-VsphereHardeningReport.ps1` | Infrastructure | none (read-only) |
+| 16 | `report-certificates` | `Get-VsphereCertificateReport.ps1` | Infrastructure | none |
+| 17 | `report-capacity-forecast` | `Get-VsphereCapacityForecast.ps1` | Infrastructure | none |
+| 18 | `backup-policy` | `Set-PortalBackupPolicy.ps1` | Infrastructure | none |
+| 19 | `cloud-cost-report-aws`, `cloud-cost-report-azure` | `Get-CloudCostReport.ps1` | Cloud | none |
+| 19b | `cloud-power-action-aws`, `cloud-power-action-azure` | `Invoke-CloudPowerAction.ps1` | Cloud | Approval, dry run by default |
+| 20 | `blueprint-three-tier` | `New-VsphereThreeTierApp.ps1` | Infrastructure | Approval |
+| 21 | `datastore-create` | `New-VsphereDatastore.ps1` | Infrastructure | Approval + re-authentication; rescan controls in [catalog-authoring.md 4.1](catalog-authoring.md#41-storage-devices-and-rescans) |
+
+Not delivered yet from the plan below: scheduled vMotion windows (3), automatic purge schedule (5), email warnings (16), per-site change windows and the companion datastore items (21), cloud backup services (18).
+
+The tables below are the original plan, kept for reference.
 
 Legend: **Approval** shows whether the plan requires approval for the item. **Depends on** lists the Phase 2 enablers or other items the item is expected to need. Dependencies are indicative.
 

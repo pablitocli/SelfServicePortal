@@ -1,6 +1,6 @@
 /* Self-Service Portal - Admin module
    Tabs (shown per permission): Catalog | Customization | vCenter connections | Cloud connections | Identity | Security |
-   Vault | Local users | Audit
+   Vault | Local users | Audit | Data files (software repository, baselines, backup policies)
    Each tab loads only its own data, so one slow call never blocks the whole page. */
 (() => {
   'use strict';
@@ -10,9 +10,9 @@
   const ROLE_HELP = { Requester: 'request services', Approver: 'approve requests of their teams', Admin: 'everything',
                       CatalogAdmin: 'catalog, branding, teams, VM notes', SecurityAdmin: 'identity, users, security policy, audit', VaultAdmin: 'credential vault' };
   const INPUT_TYPES = ['text', 'textarea', 'number', 'select', 'boolean', 'ipv4', 'credential'];
-  const SOURCE_TYPES = ['', 'sites', 'clusters', 'datastores', 'datastoreClusters', 'portgroups', 'templates', 'folders', 'vms', 'awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes'];
+  const SOURCE_TYPES = ['', 'sites', 'clusters', 'datastores', 'datastoreClusters', 'portgroups', 'templates', 'folders', 'vms', 'hosts', 'vdSwitches', 'storageDevices', 'softwareSets', 'backupPolicies', 'awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes'];
   const ICON_KEYS = ['vm', 'windows', 'linux', 'snapshot', 'network', 'storage', 'backup', 'security', 'database', 'cloud', 'generic'];
-  const TABS = [['catalog', 'Catalog', ['catalog.manage']], ['customization', 'Customization', ['catalog.manage', 'security.manage']],
+  const TABS = [['catalog', 'Catalog', ['catalog.manage']], ['datafiles', 'Data files', ['catalog.manage']], ['customization', 'Customization', ['catalog.manage', 'security.manage']],
                 ['vcenters', 'vCenter connections', ['connections.manage']], ['clouds', 'Cloud connections', ['connections.manage']],
                 ['identity', 'Identity', ['security.manage']], ['security', 'Security', ['security.manage']], ['vault', 'Vault', ['vault.manage']],
                 ['users', 'Local users', ['security.manage']], ['audit', 'Audit', ['audit.read']]];
@@ -46,6 +46,7 @@
       if (tab === 'security') return await security(body);
       if (tab === 'vault')    return await vault(body);
       if (tab === 'audit')    return await audit(body);
+      if (tab === 'datafiles') return await dataFiles(body, sub);
       body.innerHTML = '<div class="alert alert-err">Unknown admin page.</div>';
     } catch (e) { body.innerHTML = `<div class="alert alert-err">${esc(e.message)}</div>`; }
   }
@@ -1157,6 +1158,48 @@
       <tbody>${a.entries.slice(0, 200).map((x) => `<tr><td>${P().fmtDate(x.ts)}</td><td>${esc(x.actor)}</td><td class="mono">${esc(x.action)}</td>
         <td class="mono">${x.target && /^REQ-/.test(x.target) ? `<a href="#/requests/${esc(x.target)}">${esc(x.target)}</a>` : esc(x.target || '')}</td>
         <td class="muted" style="word-break:break-all">${esc(x.details && Object.keys(x.details).length ? JSON.stringify(x.details) : '')}</td></tr>`).join('')}</tbody></table></div></section>`;
+  }
+
+  /* ---------------- data files (software repository, version / hardening baselines, backup policies) ---------------- */
+  async function dataFiles(body, sel) {
+    const d = await P().api('/api/admin/datafiles');
+    const files = d.files || [];
+    const cur = files.find((f) => f.name === sel) || files[0];
+    if (!cur) { body.innerHTML = '<div class="card card-pad muted">No data files.</div>'; return; }
+    const HELP = {
+      software: 'Packages installed by "Install agent baseline" (Windows / Linux). Only status Approved is installed; Pending / Retired packages are skipped and reported. Sets group packages per OS.',
+      versionBaseline: 'Target builds for vCenter, ESXi, VMware Tools and VM hardware, plus advisories (fixed build). Used by "Version compliance".',
+      hardeningBaseline: 'Checks used by "Hardening compliance": ESXi advanced settings, services and VM advanced settings (operator eq / ne / le / ge / range / nonEmpty).',
+      backup: 'Backup policies offered by "Backup policy". Connector vsphereTag writes the policy as a vSphere tag (vendor-agnostic); other connectors are templates until a backup product is approved.',
+    };
+    body.innerHTML = `<div class="two-col">
+      <section class="card card-pad stack">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <h2 class="section-title" style="margin:0">${esc(cur.title)} <span class="muted mono" style="font-size:12px">${esc(cur.file)}</span></h2>
+          <div class="actions"><button class="btn btn-sm" id="dfValidate">Validate</button><button class="btn btn-primary btn-sm" id="dfSave">Save</button></div>
+        </div>
+        <p class="muted small" style="margin:0">${esc(HELP[cur.name] || '')}</p>
+        <div id="dfMsg"></div>
+        <textarea id="dfJson" class="datafile-editor" spellcheck="false">${esc(JSON.stringify(cur.content, null, 2))}</textarea>
+      </section>
+      <aside class="aside card card-pad stack"><h2 class="section-title">Files</h2>
+        <ul class="report-list">${files.map((f) => `<li><a href="#/admin/datafiles/${esc(f.name)}"${f.name === cur.name ? ' style="font-weight:600"' : ''}>${esc(f.title)}</a>
+          <span class="muted small">${f.updated ? P().fmtDate(f.updated) : 'default'}</span></li>`).join('')}</ul>
+        <p class="muted small" style="margin:0">Saving keeps the previous version in config/_backup and asks you to confirm your password.</p></aside></div>`;
+    const msg = (cls, html) => { document.getElementById('dfMsg').innerHTML = `<div class="alert ${cls}">${html}</div>`; };
+    const showErrors = (e) => { const errs = Array.isArray(e) ? e : [e]; msg('alert-err', `<b>The file is not valid.</b><ul style="margin:6px 0 0;padding-left:18px">${errs.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`); };
+    document.getElementById('dfValidate').addEventListener('click', async () => {
+      try {
+        const r = await P().api(`/api/admin/datafiles/${encodeURIComponent(cur.name)}`, { method: 'POST', body: { json: val('dfJson'), validateOnly: true } });
+        if (r.valid) msg('alert-ok', 'Valid.'); else showErrors(r.errors || []);
+      } catch (e) { msg('alert-err', esc(e.message)); }
+    });
+    document.getElementById('dfSave').addEventListener('click', async () => {
+      try {
+        await P().api(`/api/admin/datafiles/${encodeURIComponent(cur.name)}`, { method: 'POST', body: { json: val('dfJson') } });
+        P().toast(`${cur.title} saved.`); dataFiles(body, cur.name);
+      } catch (e) { if (e.fields && e.fields.errors) showErrors(e.fields.errors); else msg('alert-err', esc(e.message)); }
+    });
   }
 
   window.PortalAdmin = { view };

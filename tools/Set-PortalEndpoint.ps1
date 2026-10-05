@@ -23,7 +23,7 @@ $ErrorActionPreference = 'Stop'
 try {
     $root = Split-Path -Parent $PSScriptRoot
     if (-not $env:SSP_PORTAL_ROOT) { $env:SSP_PORTAL_ROOT = $root }
-    foreach ($m in 'Portal.Core', 'Portal.Security', 'Portal.Vault', 'Portal.Catalog', 'Portal.Jobs', 'Portal.Sites', 'Portal.Cloud', 'Portal.Settings') {
+    foreach ($m in 'Portal.Core', 'Portal.Security', 'Portal.Vault', 'Portal.Data', 'Portal.Catalog', 'Portal.Jobs', 'Portal.Sites', 'Portal.Cloud', 'Portal.Settings') {
         Import-Module (Join-Path $root "modules/$m.psm1") -Force
     }
     Initialize-PortalConfiguration | Out-Null      # creates config/portal.config.json + config/local-users.json from the defaults

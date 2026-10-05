@@ -120,7 +120,8 @@ function New-PortalRequest {
     param(
         [Parameter(Mandatory)] $Item,
         [Parameter(Mandatory)] [System.Collections.IDictionary] $Values,
-        [Parameter(Mandatory)] $User
+        [Parameter(Mandatory)] $User,
+        [System.Collections.IDictionary] $Authorization     # re-authentication evidence for sensitive items (by / at / ip)
     )
     $cfg  = Get-PortalConfig
     $exec = $Item.execution
@@ -171,6 +172,7 @@ function New-PortalRequest {
         history     = @([ordered]@{ ts = $now; status = $status; actor = $User.username; note = 'Request submitted' })
     }
     if ($status -eq 'Queued') { $req.job['queuedAt'] = $now }
+    if ($Authorization) { $req['authorization'] = $Authorization }
 
     Write-PortalJson -Path (Get-RequestPath -Id $req.id) -Value $req
     Write-PortalAudit -Actor $User.username -Action 'request.create' -Target $req.id -Details @{ item = $Item.id; version = $Item.version; status = $status }
@@ -240,6 +242,28 @@ function Stop-PortalRequest {
     $out = Update-PortalRequest -Id $Id -Status 'Cancelled' -Actor $User.username -Note 'Cancelled by user'
     Write-PortalAudit -Actor $User.username -Action 'request.cancel' -Target $Id
     return $out
+}
+
+function Get-PortalReportDir {
+    <# data/reports/<REQ-ID> (validated id). #>
+    [CmdletBinding()] param([Parameter(Mandatory)] [string] $Id)
+    $null = Get-RequestPath -Id $Id
+    return (Join-Path (Get-PortalPath -Name Reports) $Id)
+}
+
+function Get-PortalRequestReport {
+    <# Reports produced by a request: name, type (html/csv), size. With -Name returns the validated file path or $null. #>
+    [CmdletBinding()] param([Parameter(Mandatory)] [string] $Id, [string] $Name)
+    $dir = Get-PortalReportDir -Id $Id
+    if ($Name) {
+        if ($Name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,150}\.(html|csv)$') { return $null }
+        $p = Join-Path $dir $Name
+        if (Test-Path -LiteralPath $p -PathType Leaf) { return $p } else { return $null }
+    }
+    if (-not (Test-Path -LiteralPath $dir)) { return }
+    foreach ($f in Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Extension -in '.html', '.csv' } | Sort-Object { $_.Extension -ne '.html' }, Name) {
+        [ordered]@{ name = $f.Name; type = $f.Extension.TrimStart('.'); sizeKB = [math]::Ceiling($f.Length / 1KB) }
+    }
 }
 
 function Get-PortalRequestLog {
@@ -404,6 +428,6 @@ function Start-PortalInventoryRefresh {
 
 #endregion
 
-Export-ModuleMember -Function New-PortalRequest, Get-PortalRequest, Get-PortalRequestList, ConvertTo-PortalRequestSummary,
+Export-ModuleMember -Function Get-PortalReportDir, Get-PortalRequestReport, New-PortalRequest, Get-PortalRequest, Get-PortalRequestList, ConvertTo-PortalRequestSummary,
     Update-PortalRequest, Test-PortalCanApprove, Approve-PortalRequest, Deny-PortalRequest, Stop-PortalRequest,
-    Get-PortalRequestLog, Invoke-PortalJobDispatcher, Get-PortalInventoryStatus, Start-PortalInventoryRefresh, Test-PortalProcessAlive
+    Get-PortalRequestLog, Invoke-PortalJobDispatcher, Get-PortalInventoryStatus, Start-PortalInventoryRefresh, Test-PortalProcessAlive, Start-PortalProcess

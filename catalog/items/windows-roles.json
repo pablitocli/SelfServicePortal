@@ -1,0 +1,191 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "windows-roles",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Windows roles and features",
+  "category": "Software installation",
+  "icon": "windows",
+  "summary": "Install a standard Windows Server role bundle (IIS, .NET, Failover Clustering, File Server) or configure MSDTC.",
+  "description": "Runs inside the guest through VMware Tools (no WinRM). Feature bundles are installed with Install-WindowsFeature (idempotent). MSDTC configures the local DTC network access, inbound/outbound transactions and authentication, enables the Distributed Transaction Coordinator firewall rules, restarts the service and verifies the settings (a clustered DTC role is not configured). The VM is restarted only when needed and allowed.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "Windows",
+    "IIS",
+    "MSDTC",
+    "Failover Clustering"
+  ],
+  "estimatedDuration": "5-20 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "Infrastructure"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "sites": [
+    "DC1",
+    "DC2"
+  ],
+  "execution": {
+    "handler": "Install-GuestWindowsFeature.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 60,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "help": "Powered-on Windows Server VM with VMware Tools running.",
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ],
+        "powerState": "PoweredOn"
+      }
+    },
+    {
+      "name": "GuestCredential",
+      "label": "Guest administrator credential",
+      "type": "credential",
+      "group": "Target",
+      "required": true,
+      "vaultTags": [
+        "guest-windows"
+      ]
+    },
+    {
+      "name": "Features",
+      "label": "Bundle",
+      "type": "select",
+      "group": "Features",
+      "required": true,
+      "default": "IIS",
+      "options": [
+        {
+          "value": "IIS",
+          "label": "IIS (Web-Server, Web-Mgmt-Console, ASP.NET 4.x)"
+        },
+        {
+          "value": "DotNet",
+          "label": ".NET Framework 4.x core + 3.5"
+        },
+        {
+          "value": "FailoverClustering",
+          "label": "Failover Clustering + RSAT tools"
+        },
+        {
+          "value": "FileServer",
+          "label": "File Server"
+        },
+        {
+          "value": "MSDTC",
+          "label": "MSDTC network configuration (no feature install)"
+        }
+      ]
+    },
+    {
+      "name": "MsdtcNetworkAccess",
+      "label": "Network DTC access",
+      "type": "boolean",
+      "group": "MSDTC",
+      "default": true,
+      "visibleWhen": {
+        "field": "Features",
+        "equals": "MSDTC"
+      }
+    },
+    {
+      "name": "MsdtcAllowInbound",
+      "label": "Allow inbound transactions",
+      "type": "boolean",
+      "group": "MSDTC",
+      "default": true,
+      "visibleWhen": {
+        "field": "Features",
+        "equals": "MSDTC"
+      }
+    },
+    {
+      "name": "MsdtcAllowOutbound",
+      "label": "Allow outbound transactions",
+      "type": "boolean",
+      "group": "MSDTC",
+      "default": true,
+      "visibleWhen": {
+        "field": "Features",
+        "equals": "MSDTC"
+      }
+    },
+    {
+      "name": "MsdtcAuthentication",
+      "label": "Authentication",
+      "type": "select",
+      "group": "MSDTC",
+      "required": true,
+      "default": "Mutual",
+      "visibleWhen": {
+        "field": "Features",
+        "equals": "MSDTC"
+      },
+      "options": [
+        {
+          "value": "Mutual",
+          "label": "Mutual authentication required (recommended)"
+        },
+        {
+          "value": "Incoming",
+          "label": "Incoming caller authentication required"
+        },
+        {
+          "value": "NoAuth",
+          "label": "No authentication required"
+        }
+      ]
+    },
+    {
+      "name": "RestartIfNeeded",
+      "label": "Restart the VM if required",
+      "type": "boolean",
+      "group": "Options",
+      "default": false,
+      "help": "Off = the result reports that a restart is pending."
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Options",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "connector": "netbackup",
+  "product": "Veritas NetBackup (10.x)",
+  "status": "template — not approved",
+  "api": {
+    "type": "REST",
+    "baseUrl": "https://<primary-server>:1556/netbackup",
+    "auth": "API key (Authorization header) for a portal user with an RBAC role",
+    "credentialRef": "<vault id, e.g. backup-netbackup-apikey>"
+  },
+  "requiredFields": ["baseUrl", "credentialRef", "policyMapping"],
+  "policyMapping": {
+    "model": "portal policy id -> VMware Intelligent Policy whose query selects the vSphere tag",
+    "example": { "Gold": "VIP-GOLD (query: vmware:/?filter=Tag Equal \"Gold\")", "Silver": "VIP-SILVER", "Bronze": "VIP-BRONZE" },
+    "none": "tag removed: VIP queries no longer match the VM"
+  },
+  "permissions": "RBAC role limited to the VMware policies (read + modify)",
+  "notes": "No secrets in this file. Template only - not loaded by the portal."
+}
