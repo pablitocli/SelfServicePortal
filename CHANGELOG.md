@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-05
+
+### Security
+- Sign-in page: the sign-in logic moved from an inline script to `web/assets/login.js`. With Pode's security headers (Content-Security-Policy) the inline script was blocked, and the browser fell back to submitting the form with GET, placing the username and password in the URL (and in the request log). The form now also declares `method="post"`, so credentials can never end up in a URL even if scripts are blocked.
+- Smoke tests reject inline `<script>` blocks and non-POST forms in `web/*.html`.
+
 ## [1.0.1] - 2026-10-05
 
 ### Fixed
@@ -88,6 +94,7 @@ First public release.
 - Offline smoke test suite (`tests/Invoke-SmokeTest.ps1`).
 - Technical documentation in `docs/`.
 
-[Unreleased]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/OWNER/SelfServicePortal/releases/tag/v1.0.0

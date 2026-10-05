@@ -32,6 +32,11 @@ Write-Host "`nFirst start" -ForegroundColor Cyan
 $vs = Get-PortalVaultStatus
 Check 'Vault status works on a new, empty vault (first start)' ($vs.healthy -and $vs.entries -eq 0)
 
+Write-Host "`nWeb pages" -ForegroundColor Cyan
+$pages = Get-ChildItem (Join-Path $temp 'web') -Filter '*.html'
+Check 'No inline <script> blocks (pages must work under a strict Content-Security-Policy)' (-not ($pages | Where-Object { (Get-Content $_.FullName -Raw) -match '<script(?![^>]*\ssrc=)[^>]*>' }))
+Check 'Every <form> uses POST (credentials never in a URL)' (-not ($pages | Where-Object { [regex]::Matches((Get-Content $_.FullName -Raw), '<form[^>]*>') | Where-Object { $_.Value -notmatch 'method="post"' } }))
+
 # --- Fixtures ----------------------------------------------------------------------------------------------
 $cfgPath = Join-Path $temp 'config/portal.config.json'
 $cfg = Read-PortalJson -Path $cfgPath
