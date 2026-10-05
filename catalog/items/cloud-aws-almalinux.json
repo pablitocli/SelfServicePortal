@@ -1,0 +1,151 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "cloud-aws-almalinux",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "AWS EC2 - AlmaLinux",
+  "category": "Cloud Ops",
+  "icon": "cloud",
+  "summary": "Launch an EC2 instance with AlmaLinux in the AWS VPC.",
+  "description": "Launches an EC2 instance from the AlmaLinux AMI into a subnet of the configured VPC, with encrypted gp3 volumes, the landing-zone security groups and mandatory cost/ownership tags.",
+  "owner": "Cloud Operations",
+  "tags": [
+    "AWS",
+    "Linux",
+    "AlmaLinux"
+  ],
+  "estimatedDuration": "5-10 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "Cloud"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "execution": {
+    "handler": "New-AwsEc2Instance.ps1",
+    "requiresVCenter": false,
+    "cloud": "aws",
+    "timeoutMinutes": 45,
+    "fixedParameters": {
+      "OsFlavor": "AlmaLinux"
+    }
+  },
+  "inputs": [
+    {
+      "name": "InstanceName",
+      "label": "Instance name (Name tag / hostname)",
+      "type": "text",
+      "group": "General",
+      "required": true,
+      "transform": "lower",
+      "validation": {
+        "pattern": "^[a-z][a-z0-9-]{2,62}$",
+        "patternMessage": "Lowercase, start with a letter; letters, digits and hyphens."
+      }
+    },
+    {
+      "name": "Description",
+      "label": "Purpose / description",
+      "type": "textarea",
+      "group": "General",
+      "required": true,
+      "validation": {
+        "maxLength": 250
+      }
+    },
+    {
+      "name": "InstanceType",
+      "label": "Instance type",
+      "type": "select",
+      "group": "Sizing",
+      "required": true,
+      "source": {
+        "type": "awsInstanceTypes"
+      }
+    },
+    {
+      "name": "RootVolumeGB",
+      "label": "Root volume (GB)",
+      "type": "number",
+      "group": "Sizing",
+      "default": 30,
+      "help": "gp3, encrypted.",
+      "validation": {
+        "min": 10,
+        "max": 2048
+      }
+    },
+    {
+      "name": "DataDiskGB",
+      "label": "Additional data volume (GB)",
+      "type": "number",
+      "group": "Sizing",
+      "default": 0,
+      "help": "0 = none. gp3, encrypted.",
+      "validation": {
+        "min": 0,
+        "max": 16384
+      }
+    },
+    {
+      "name": "SubnetId",
+      "label": "Subnet (VPC)",
+      "type": "select",
+      "group": "Network",
+      "required": true,
+      "source": {
+        "type": "awsSubnets"
+      }
+    },
+    {
+      "name": "AssociatePublicIp",
+      "label": "Assign a public IP",
+      "type": "boolean",
+      "group": "Network",
+      "default": false
+    },
+    {
+      "name": "Owner",
+      "label": "Technical owner (email)",
+      "type": "text",
+      "group": "Governance",
+      "required": true,
+      "validation": {
+        "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+        "patternMessage": "Valid email address required."
+      }
+    },
+    {
+      "name": "CostCenter",
+      "label": "Cost center",
+      "type": "text",
+      "group": "Governance",
+      "required": true,
+      "validation": {
+        "maxLength": 20
+      }
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Governance",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ],
+  "vmNotes": true
+}

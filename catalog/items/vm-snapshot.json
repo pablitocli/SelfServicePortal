@@ -1,0 +1,103 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "vm-snapshot",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "VM Snapshot (pre-change)",
+  "category": "Datacenter operations",
+  "icon": "snapshot",
+  "summary": "Take a point-in-time snapshot of an existing VM before a change window.",
+  "description": "Creates a vSphere snapshot of the selected VM with an expiry date stamped in the description. Snapshots are operational safety nets, not backups; the expiry drives the snapshot cleanup policy.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Snapshot",
+    "Change"
+  ],
+  "estimatedDuration": "1-5 min",
+  "access": {
+    "roles": [
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "Infrastructure"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "sites": [
+    "DC1",
+    "DC2"
+  ],
+  "execution": {
+    "handler": "New-VsphereSnapshot.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Snapshot",
+      "required": true,
+      "validation": {
+        "maxLength": 30
+      }
+    },
+    {
+      "name": "RetentionDays",
+      "label": "Retention (days)",
+      "type": "number",
+      "group": "Snapshot",
+      "required": true,
+      "default": 3,
+      "help": "Maximum 7 days per snapshot policy.",
+      "validation": {
+        "min": 1,
+        "max": 7
+      }
+    },
+    {
+      "name": "IncludeMemory",
+      "label": "Include memory state",
+      "type": "boolean",
+      "group": "Snapshot",
+      "default": false
+    },
+    {
+      "name": "Quiesce",
+      "label": "Quiesce guest file system (VMware Tools)",
+      "type": "boolean",
+      "group": "Snapshot",
+      "default": true
+    }
+  ]
+}

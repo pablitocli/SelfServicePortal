@@ -1,0 +1,361 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/self-service-portal/catalog-item.schema.json",
+  "title": "Self-Service Portal - Catalog Item",
+  "type": "object",
+  "required": [
+    "id",
+    "version",
+    "name",
+    "category",
+    "summary",
+    "execution",
+    "inputs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{2,62}$",
+      "description": "Unique, immutable identifier. Lowercase, digits, hyphens."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "category": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "icon": {
+      "type": "string",
+      "enum": [
+        "vm",
+        "windows",
+        "linux",
+        "snapshot",
+        "network",
+        "storage",
+        "backup",
+        "security",
+        "database",
+        "generic",
+        "cloud"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "owner": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "estimatedDuration": {
+      "type": "string"
+    },
+    "access": {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/role"
+          },
+          "minItems": 1
+        },
+        "teams": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Team ids (Admin > Customization > Teams). Empty or omitted = every team."
+        }
+      },
+      "additionalProperties": false
+    },
+    "approval": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "approverRoles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/role"
+          }
+        }
+      },
+      "required": [
+        "required"
+      ],
+      "additionalProperties": false
+    },
+    "sites": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Site codes from portal.config.json where the item is offered. Omit for all enabled sites."
+    },
+    "execution": {
+      "type": "object",
+      "required": [
+        "handler"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "handler": {
+          "type": "string",
+          "pattern": "^[^<>|\"?*]+\\.ps1$",
+          "description": "Script file name inside automation/handlers, or a path under automation.allowedHandlerRoots."
+        },
+        "requiresVCenter": {
+          "type": "boolean",
+          "default": true
+        },
+        "siteInput": {
+          "type": "string",
+          "default": "Site"
+        },
+        "timeoutMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1440
+        },
+        "fixedParameters": {
+          "type": "object"
+        },
+        "cloud": {
+          "type": "string",
+          "enum": [
+            "aws",
+            "azure"
+          ],
+          "description": "Cloud Ops items: authenticate the runner against this provider (Admin > Cloud connections)."
+        },
+        "credentials": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{1,62}$"
+          },
+          "description": "Vault credentials bound to handler parameters: { \"GuestCredential\": \"vault-entry-id\" }. The runner passes a [pscredential]."
+        }
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/input"
+      }
+    },
+    "vmNotes": {
+      "type": "boolean",
+      "description": "Append the VM notes section (Admin > Customization > VM notes) to the form; the handler receives -VmNotes."
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requireReauth": {
+          "type": "boolean",
+          "default": false,
+          "description": "Submitting and approving this item need the password re-entered within security.session.reauthWindowMinutes."
+        }
+      }
+    }
+  },
+  "definitions": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "Requester",
+        "Approver",
+        "Admin",
+        "CatalogAdmin",
+        "SecurityAdmin",
+        "VaultAdmin"
+      ]
+    },
+    "input": {
+      "type": "object",
+      "required": [
+        "name",
+        "label",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9]{0,40}$",
+          "description": "Must match a parameter of the handler script."
+        },
+        "label": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "textarea",
+            "number",
+            "select",
+            "boolean",
+            "ipv4",
+            "credential"
+          ]
+        },
+        "group": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "default": {},
+        "placeholder": {
+          "type": "string"
+        },
+        "help": {
+          "type": "string"
+        },
+        "transform": {
+          "type": "string",
+          "enum": [
+            "upper",
+            "lower",
+            "trim"
+          ]
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "value",
+              "label"
+            ],
+            "properties": {
+              "value": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "source": {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "sites",
+                "clusters",
+                "datastores",
+                "datastoreClusters",
+                "portgroups",
+                "templates",
+                "folders",
+                "vms",
+                "awsSubnets",
+                "awsInstanceTypes",
+                "azureSubnets",
+                "azureVmSizes"
+              ]
+            },
+            "dependsOn": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "filter": {
+              "type": "string",
+              "description": ".NET regular expression applied to object names."
+            },
+            "minFreeGB": {
+              "type": "number"
+            }
+          }
+        },
+        "visibleWhen": {
+          "type": "object",
+          "required": [
+            "field",
+            "equals"
+          ],
+          "properties": {
+            "field": {
+              "type": "string"
+            },
+            "equals": {}
+          }
+        },
+        "validation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "patternMessage": {
+              "type": "string"
+            },
+            "minLength": {
+              "type": "integer"
+            },
+            "maxLength": {
+              "type": "integer"
+            },
+            "min": {
+              "type": "number"
+            },
+            "max": {
+              "type": "number"
+            }
+          }
+        },
+        "vaultTags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "credential inputs: only vault entries carrying one of these tags are offered."
+        },
+        "requireReauth": {
+          "type": "boolean",
+          "default": false,
+          "description": "Ask for a recent re-authentication before this input lookup runs and before the request is submitted or approved."
+        }
+      }
+    }
+  }
+}

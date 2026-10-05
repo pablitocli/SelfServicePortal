@@ -1,0 +1,63 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "my-new-service",
+  "version": "0.1.0",
+  "enabled": false,
+  "name": "My New Service",
+  "category": "Compute",
+  "icon": "generic",
+  "summary": "One line shown on the marketplace card.",
+  "description": "Longer description shown on the request page.",
+  "owner": "Infrastructure Operations",
+  "tags": [],
+  "estimatedDuration": "5 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "Infrastructure"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "sites": [
+    "DC1",
+    "DC2"
+  ],
+  "execution": {
+    "handler": "My-NewService.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "Example",
+      "label": "Example field",
+      "type": "text",
+      "required": true,
+      "validation": {
+        "pattern": "^[A-Za-z0-9-]{3,20}$",
+        "patternMessage": "3-20 alphanumeric characters."
+      }
+    }
+  ]
+}

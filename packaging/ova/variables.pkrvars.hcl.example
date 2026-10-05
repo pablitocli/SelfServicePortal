@@ -1,0 +1,36 @@
+# Copy to e.g. my-site.pkrvars.hcl (keep it out of version control) and fill in your values.
+# Secrets can also come from the environment instead of this file:
+#   export PKR_VAR_vcenter_password='...'  PKR_VAR_build_password='...'  PKR_VAR_appliance_default_password='...'
+
+vcenter_server     = "vcenter.corp.example.com"
+vcenter_username   = "svc-packer@vsphere.local"
+vcenter_password   = "REPLACE-ME"
+vcenter_insecure   = false
+vcenter_datacenter = "DC1"
+vcenter_cluster    = "Cluster01"
+vcenter_host       = ""                       # optional: pin to one ESXi host
+vcenter_datastore  = "datastore01"
+vcenter_folder     = "Templates/Build"
+vcenter_network    = "VLAN100-Build"          # needs DHCP during the build
+
+# Either an ISO on a datastore ...
+iso_datastore_path = "[iso-datastore] linux/AlmaLinux-9.6-x86_64-dvd.iso"
+# ... or a URL / local path Packer downloads and uploads (used when iso_datastore_path is empty)
+iso_url      = "https://repo.almalinux.org/almalinux/9/isos/x86_64/AlmaLinux-9-latest-x86_64-dvd.iso"
+iso_checksum = "file:https://repo.almalinux.org/almalinux/9/isos/x86_64/CHECKSUM"
+
+vm_name      = "ssp-appliance"
+vm_version   = 19
+cpus         = 4
+memory_mb    = 8192
+disk_size_mb = 61440
+
+build_username             = "packer"
+build_password             = "REPLACE-ME-build-only"
+appliance_default_password = ""               # empty = sspadmin locked until ssp.os_password is set
+http_ip                    = ""               # set if the Packer host has several interfaces
+
+cloud_modules   = true
+powercli_module = "VMware.PowerCLI"           # or "VCF.PowerCLI"
+os_update       = true
+zero_free_space = true

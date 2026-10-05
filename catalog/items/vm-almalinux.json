@@ -1,0 +1,321 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "vm-almalinux",
+  "version": "2.0.0",
+  "enabled": true,
+  "name": "AlmaLinux VM",
+  "category": "Datacenter (vSphere)",
+  "icon": "linux",
+  "summary": "Deploy a new AlmaLinux virtual machine on vSphere from the golden template.",
+  "description": "Clones the approved AlmaLinux template of the selected datacenter, applies Linux guest customization (hostname, domain, network), places it on the APP or DB cluster, sizes CPU/memory, adds an optional data disk and powers on the VM. Standard sizes run without approval.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Linux",
+    "AlmaLinux",
+    "VM"
+  ],
+  "estimatedDuration": "10-15 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "Infrastructure"
+    ]
+  },
+  "approval": {
+    "required": false,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "sites": [
+    "DC1",
+    "DC2"
+  ],
+  "execution": {
+    "handler": "New-VsphereVM.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 60,
+    "fixedParameters": {
+      "GuestFamily": "Linux",
+      "Template": {
+        "DC1": "TBD-DC1-TPL-ALMALINUX",
+        "DC2": "TBD-DC2-TPL-ALMALINUX"
+      },
+      "CustomizationSpec": {
+        "DC1": "TBD-ALMALINUX-BASE",
+        "DC2": "TBD-ALMALINUX-BASE"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "name": "VMName",
+      "label": "VM name",
+      "type": "text",
+      "group": "General",
+      "required": true,
+      "transform": "lower",
+      "placeholder": "applnx01",
+      "help": "Hostname: max 15 characters, letters, digits and hyphens.",
+      "validation": {
+        "pattern": "^[A-Za-z][A-Za-z0-9-]{2,14}$",
+        "patternMessage": "3-15 characters, must start with a letter; letters, digits and hyphens only."
+      }
+    },
+    {
+      "name": "Description",
+      "label": "Purpose / description",
+      "type": "textarea",
+      "group": "General",
+      "required": true,
+      "validation": {
+        "maxLength": 250
+      }
+    },
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Placement",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "Workload",
+      "label": "Workload type",
+      "type": "select",
+      "group": "Placement",
+      "required": true,
+      "default": "App",
+      "help": "APP deploys to the application cluster, DB to the database cluster of the selected datacenter.",
+      "options": [
+        {
+          "value": "App",
+          "label": "Application (APP cluster)"
+        },
+        {
+          "value": "DB",
+          "label": "Database (DB cluster)"
+        }
+      ]
+    },
+    {
+      "name": "Datastore",
+      "label": "Datastore",
+      "type": "select",
+      "group": "Placement",
+      "required": true,
+      "source": {
+        "type": "datastores",
+        "dependsOn": [
+          "Site",
+          "Workload"
+        ],
+        "minFreeGB": 100
+      }
+    },
+    {
+      "name": "Folder",
+      "label": "VM folder",
+      "type": "select",
+      "group": "Placement",
+      "required": true,
+      "source": {
+        "type": "folders",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "CpuCount",
+      "label": "vCPU",
+      "type": "select",
+      "group": "Sizing",
+      "required": true,
+      "default": "2",
+      "options": [
+        {
+          "value": "2",
+          "label": "2 vCPU"
+        },
+        {
+          "value": "4",
+          "label": "4 vCPU"
+        },
+        {
+          "value": "8",
+          "label": "8 vCPU"
+        }
+      ]
+    },
+    {
+      "name": "MemoryGB",
+      "label": "Memory",
+      "type": "select",
+      "group": "Sizing",
+      "required": true,
+      "default": "8",
+      "options": [
+        {
+          "value": "4",
+          "label": "4 GB"
+        },
+        {
+          "value": "8",
+          "label": "8 GB"
+        },
+        {
+          "value": "16",
+          "label": "16 GB"
+        },
+        {
+          "value": "32",
+          "label": "32 GB"
+        }
+      ]
+    },
+    {
+      "name": "AdditionalDiskGB",
+      "label": "Additional data disk (GB)",
+      "type": "number",
+      "group": "Sizing",
+      "required": false,
+      "default": 0,
+      "help": "0 = no additional disk. Thin provisioned.",
+      "validation": {
+        "min": 0,
+        "max": 2048
+      }
+    },
+    {
+      "name": "PortGroup",
+      "label": "Network (port group)",
+      "type": "select",
+      "group": "Network",
+      "required": true,
+      "source": {
+        "type": "portgroups",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "IpMode",
+      "label": "IP assignment",
+      "type": "select",
+      "group": "Network",
+      "required": true,
+      "default": "Static",
+      "options": [
+        {
+          "value": "Static",
+          "label": "Static"
+        },
+        {
+          "value": "DHCP",
+          "label": "DHCP"
+        }
+      ]
+    },
+    {
+      "name": "IPAddress",
+      "label": "IP address",
+      "type": "ipv4",
+      "group": "Network",
+      "required": true,
+      "visibleWhen": {
+        "field": "IpMode",
+        "equals": "Static"
+      }
+    },
+    {
+      "name": "SubnetMask",
+      "label": "Subnet mask",
+      "type": "ipv4",
+      "group": "Network",
+      "required": true,
+      "default": "255.255.254.0",
+      "visibleWhen": {
+        "field": "IpMode",
+        "equals": "Static"
+      }
+    },
+    {
+      "name": "Gateway",
+      "label": "Default gateway",
+      "type": "ipv4",
+      "group": "Network",
+      "required": true,
+      "visibleWhen": {
+        "field": "IpMode",
+        "equals": "Static"
+      }
+    },
+    {
+      "name": "DnsServers",
+      "label": "DNS servers (comma separated)",
+      "type": "text",
+      "group": "Network",
+      "required": false,
+      "help": "Leave empty to use the site defaults.",
+      "visibleWhen": {
+        "field": "IpMode",
+        "equals": "Static"
+      },
+      "validation": {
+        "pattern": "^\\s*$|^(\\d{1,3}(\\.\\d{1,3}){3})(\\s*,\\s*\\d{1,3}(\\.\\d{1,3}){3})*$",
+        "patternMessage": "Comma separated IPv4 list."
+      }
+    },
+    {
+      "name": "Owner",
+      "label": "Technical owner (email)",
+      "type": "text",
+      "group": "Governance",
+      "required": true,
+      "validation": {
+        "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+        "patternMessage": "Valid email address required."
+      }
+    },
+    {
+      "name": "CostCenter",
+      "label": "Cost center",
+      "type": "text",
+      "group": "Governance",
+      "required": true,
+      "validation": {
+        "maxLength": 20
+      }
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Governance",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    },
+    {
+      "name": "PowerOn",
+      "label": "Power on after deployment",
+      "type": "boolean",
+      "group": "Options",
+      "default": true
+    }
+  ],
+  "vmNotes": true
+}

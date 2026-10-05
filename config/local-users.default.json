@@ -1,0 +1,22 @@
+{
+  "_comment": "Local portal accounts (PBKDF2). Change the admin password at first sign-in: Admin > Local users.",
+  "users": [
+    {
+      "username": "admin",
+      "displayName": "Portal Administrator",
+      "email": "",
+      "roles": [
+        "Admin"
+      ],
+      "teams": [
+        "Infrastructure",
+        "Cloud"
+      ],
+      "enabled": true,
+      "passwordHash": "pbkdf2-sha256$210000$bschWoHmZjFA0JW/WyQ4lg==$7darXNMoETALca3Sh2/jKSBWqbAP0XtByQHBrFGpptM=",
+      "createdAt": "2026-09-30T21:24:55.5509424Z",
+      "mustChangePassword": true,
+      "breakGlass": false
+    }
+  ]
+}

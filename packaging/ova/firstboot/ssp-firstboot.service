@@ -1,0 +1,20 @@
+# Self-Service Portal appliance - one-time first boot configuration (OVF properties, per-instance secrets).
+# To run it again: rm /etc/ssp/.firstboot-done && reboot   (or: ssp-firstboot --force)
+[Unit]
+Description=Self-Service Portal appliance first boot configuration
+Documentation=file:///opt/ssp/docs/ova.md
+ConditionPathExists=!/etc/ssp/.firstboot-done
+Wants=NetworkManager.service
+After=NetworkManager.service vmtoolsd.service firewalld.service systemd-machine-id-commit.service
+Before=ssp-portal.service sshd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/ssp-firstboot
+TimeoutStartSec=15min
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target

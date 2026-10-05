@@ -1,0 +1,170 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "vm-resize",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Resize VM (CPU / memory)",
+  "category": "Datacenter operations",
+  "icon": "vm",
+  "summary": "Change vCPU and memory of an existing VM.",
+  "description": "Uses hot-add when enabled on the VM. For decreases or when hot-add is disabled, the VM is shut down gracefully, resized and started again only if you allow a power cycle.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Day 2",
+    "Sizing"
+  ],
+  "estimatedDuration": "2-15 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "Infrastructure"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "sites": [
+    "DC1",
+    "DC2"
+  ],
+  "execution": {
+    "handler": "Set-VsphereVmSize.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "CpuCount",
+      "label": "vCPU",
+      "type": "select",
+      "group": "Size",
+      "required": true,
+      "options": [
+        {
+          "value": "1",
+          "label": "1 vCPU"
+        },
+        {
+          "value": "2",
+          "label": "2 vCPU"
+        },
+        {
+          "value": "4",
+          "label": "4 vCPU"
+        },
+        {
+          "value": "6",
+          "label": "6 vCPU"
+        },
+        {
+          "value": "8",
+          "label": "8 vCPU"
+        },
+        {
+          "value": "12",
+          "label": "12 vCPU"
+        },
+        {
+          "value": "16",
+          "label": "16 vCPU"
+        }
+      ]
+    },
+    {
+      "name": "MemoryGB",
+      "label": "Memory",
+      "type": "select",
+      "group": "Size",
+      "required": true,
+      "options": [
+        {
+          "value": "2",
+          "label": "2 GB"
+        },
+        {
+          "value": "4",
+          "label": "4 GB"
+        },
+        {
+          "value": "8",
+          "label": "8 GB"
+        },
+        {
+          "value": "12",
+          "label": "12 GB"
+        },
+        {
+          "value": "16",
+          "label": "16 GB"
+        },
+        {
+          "value": "24",
+          "label": "24 GB"
+        },
+        {
+          "value": "32",
+          "label": "32 GB"
+        },
+        {
+          "value": "48",
+          "label": "48 GB"
+        },
+        {
+          "value": "64",
+          "label": "64 GB"
+        }
+      ]
+    },
+    {
+      "name": "AllowPowerCycle",
+      "label": "Allow power cycle if hot-add is not possible",
+      "type": "boolean",
+      "group": "Size",
+      "default": false
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Change",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

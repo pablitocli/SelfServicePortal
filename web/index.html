@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Self-Service Portal</title>
+  <link rel="stylesheet" href="/assets/portal.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#/catalog">
+        <img id="brandLogo" class="brand-logo hidden" alt="">
+        <span class="brand-word" id="brandOrg">&nbsp;</span><span class="brand-sep"></span><span class="brand-app" id="portalName">Self-Service Portal</span>
+      </a>
+      <nav class="nav" id="nav">
+        <a href="#/catalog" data-route="catalog">Marketplace</a>
+        <a href="#/requests" data-route="requests">My requests</a>
+        <a href="#/approvals" data-route="approvals" class="hidden" data-role="Approver">Approvals <span class="badge-count hidden" id="approvalCount">0</span></a>
+        <a href="#/all" data-route="all" class="hidden" data-role="Approver">All requests</a>
+        <a href="#/admin" data-route="admin" class="hidden" data-perm="any">Admin</a>
+      </nav>
+      <div class="userbox">
+        <a class="user-meta" href="#/account" title="My account (password, MFA)"><div class="user-name" id="userName">&nbsp;</div><div class="user-roles" id="userRoles"></div></a>
+        <button class="btn-ghost-light" type="button" id="signOut">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page" id="app" aria-live="polite"></main>
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <script src="/assets/vendor/qrcode.js"></script>
+  <script src="/assets/branding.js"></script>
+  <script src="/assets/admin.js"></script>
+  <script src="/assets/app.js"></script>
+</body>
+</html>
