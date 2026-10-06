@@ -1,0 +1,92 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "vm-rightsizing",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "VM right-sizing report",
+  "category": "Datacenter operations",
+  "icon": "vm",
+  "summary": "Advisory vCPU / memory recommendations from vCenter performance history.",
+  "description": "Reads CPU and memory usage history from vCenter (average and 95th percentile) for one VM or every powered-on VM of a cluster (max 200) and flags oversized (WARN) and undersized (FAIL) VMs with a recommended size. Nothing is changed; apply a recommendation with the 'Resize VM' item.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Sizing",
+    "Report"
+  ],
+  "estimatedDuration": "1-10 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "execution": {
+    "handler": "Get-VsphereRightSizing.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "Cluster",
+      "label": "Cluster",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "clusters",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine (optional)",
+      "type": "select",
+      "group": "Target",
+      "required": false,
+      "help": "Leave empty to analyse every powered-on VM of the cluster (max 200).",
+      "source": {
+        "type": "vms",
+        "byCluster": true,
+        "dependsOn": [
+          "Site",
+          "Cluster"
+        ]
+      }
+    },
+    {
+      "name": "LookbackDays",
+      "label": "Look back (days)",
+      "type": "number",
+      "group": "Analysis",
+      "required": true,
+      "default": 30,
+      "help": "Up to 30 days uses 2-hour samples; longer periods use daily samples.",
+      "validation": {
+        "min": 1,
+        "max": 90
+      }
+    }
+  ]
+}

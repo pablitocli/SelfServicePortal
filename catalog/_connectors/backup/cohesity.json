@@ -1,0 +1,19 @@
+{
+  "connector": "cohesity",
+  "product": "Cohesity DataProtect",
+  "status": "template — not approved",
+  "api": {
+    "type": "REST",
+    "baseUrl": "https://<cluster>/v2",
+    "auth": "API key header (apiKey) bound to a portal service user",
+    "credentialRef": "<vault id, e.g. backup-cohesity-apikey>"
+  },
+  "requiredFields": ["baseUrl", "credentialRef", "sourceId", "protectionGroupMapping"],
+  "policyMapping": {
+    "model": "portal policy id -> protection group (with its policy) that includes the vSphere tag",
+    "example": { "Gold": "PG-VM-GOLD", "Silver": "PG-VM-SILVER", "Bronze": "PG-VM-BRONZE" },
+    "none": "tag removed: the VM leaves the tag-based protection group at the next source refresh"
+  },
+  "permissions": "Custom role: Protection Groups modify on the vCenter source",
+  "notes": "No secrets in this file. Template only - not loaded by the portal."
+}

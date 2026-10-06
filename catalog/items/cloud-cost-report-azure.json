@@ -1,0 +1,54 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "cloud-cost-report-azure",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Azure cost report (idle resources)",
+  "category": "Cloud Ops",
+  "icon": "cloud",
+  "summary": "Find billable idle resources in Azure with a monthly list-price estimate.",
+  "description": "Read-only report of unattached managed disks, unused public IPs, VMs stopped but not deallocated (compute still billed), long-deallocated VMs and snapshots older than 180 days, plus which resources carry the power schedule tag. Amounts are list-price estimates (USD, no discounts) to prioritise clean-up.",
+  "owner": "Cloud Operations",
+  "tags": [
+    "Azure",
+    "Cost",
+    "FinOps",
+    "Report"
+  ],
+  "estimatedDuration": "2-5 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@cloud"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "execution": {
+    "handler": "Get-CloudCostReport.ps1",
+    "requiresVCenter": false,
+    "cloud": "azure",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "StoppedDaysThreshold",
+      "label": "Stopped / deallocated for at least (days)",
+      "type": "number",
+      "group": "Options",
+      "required": true,
+      "default": 7,
+      "help": "Instances / VMs powered off for fewer days are not reported.",
+      "validation": {
+        "min": 1,
+        "max": 365
+      }
+    }
+  ]
+}

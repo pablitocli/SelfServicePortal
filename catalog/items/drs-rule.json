@@ -1,0 +1,147 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "drs-rule",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "DRS Rule",
+  "category": "Datacenter operations",
+  "icon": "vm",
+  "summary": "Create a DRS affinity / anti-affinity rule between VMs, or a VM-Host rule.",
+  "description": "VM-VM rules keep VMs together (affinity) or apart (anti-affinity). VM-Host rules create or reuse the DRS groups '<rule>-vms' and '<rule>-hosts' and bind them with a must / should (not) run on rule. Pre-checks: every VM runs in the cluster, hosts belong to the cluster, the rule name is free, and no enabled rule of the opposite type already contains two or more of the same VMs.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "DRS",
+    "Affinity",
+    "Placement"
+  ],
+  "estimatedDuration": "1-5 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "execution": {
+    "handler": "New-VsphereDrsRule.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 15,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "Cluster",
+      "label": "Cluster",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "clusters",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "RuleType",
+      "label": "Rule type",
+      "type": "select",
+      "group": "Rule",
+      "required": true,
+      "default": "VmAntiAffinity",
+      "options": [
+        {
+          "value": "VmAntiAffinity",
+          "label": "VM-VM: keep VMs apart (anti-affinity)"
+        },
+        {
+          "value": "VmAffinity",
+          "label": "VM-VM: keep VMs together (affinity)"
+        },
+        {
+          "value": "VmHostMust",
+          "label": "VM-Host: must run on hosts"
+        },
+        {
+          "value": "VmHostShould",
+          "label": "VM-Host: should run on hosts"
+        },
+        {
+          "value": "VmHostMustNot",
+          "label": "VM-Host: must not run on hosts"
+        },
+        {
+          "value": "VmHostShouldNot",
+          "label": "VM-Host: should not run on hosts"
+        }
+      ]
+    },
+    {
+      "name": "RuleName",
+      "label": "Rule name",
+      "type": "text",
+      "group": "Rule",
+      "required": true,
+      "placeholder": "AA-APPWEB",
+      "help": "Unique in the cluster. VM-Host rules also name the DRS groups <rule>-vms and <rule>-hosts.",
+      "validation": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.-]{2,75}$",
+        "patternMessage": "3-76 characters: letters, digits, space, '_', '.', '-'."
+      }
+    },
+    {
+      "name": "VMNames",
+      "label": "Virtual machines",
+      "type": "textarea",
+      "group": "Members",
+      "required": true,
+      "help": "One per line or comma separated. VM-VM rules need at least 2 VMs; all must run in the cluster.",
+      "validation": {
+        "maxLength": 2000
+      }
+    },
+    {
+      "name": "HostNames",
+      "label": "Hosts",
+      "type": "textarea",
+      "group": "Members",
+      "required": false,
+      "help": "Only for VM-Host rules (ignored for VM-VM). One per line or comma separated; FQDN or short name.",
+      "validation": {
+        "maxLength": 2000
+      }
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Governance",
+      "required": true,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

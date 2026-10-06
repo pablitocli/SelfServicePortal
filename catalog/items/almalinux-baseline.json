@@ -1,0 +1,191 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "almalinux-baseline",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "AlmaLinux server baseline",
+  "category": "Software installation",
+  "icon": "linux",
+  "summary": "Join an AlmaLinux VM to Active Directory and apply NTP, sudo groups, extra packages and CIS basics.",
+  "description": "Runs inside the guest through VMware Tools (no SSH). Installs the realmd/SSSD stack and chrony, configures NTP servers, joins the AD domain (password passed through stdin, never logged), permits the sudo groups and adds a validated sudoers drop-in, then applies CIS basics: network sysctl hardening, no root SSH login (checked with sshd -t), password minimum length 14, auditd and firewalld enabled (ssh kept open). Idempotent: safe to run again.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "Linux",
+    "AlmaLinux",
+    "Active Directory",
+    "CIS"
+  ],
+  "estimatedDuration": "5-15 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "execution": {
+    "handler": "Set-GuestAlmaLinuxBaseline.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 60,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "help": "Powered-on AlmaLinux VM with VMware Tools (open-vm-tools) running.",
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ],
+        "powerState": "PoweredOn"
+      }
+    },
+    {
+      "name": "GuestCredential",
+      "label": "Guest credential",
+      "type": "credential",
+      "group": "Target",
+      "required": true,
+      "help": "root, or a user with passwordless sudo.",
+      "vaultTags": [
+        "guest-linux"
+      ]
+    },
+    {
+      "name": "JoinDomain",
+      "label": "Join Active Directory",
+      "type": "boolean",
+      "group": "Domain",
+      "default": true
+    },
+    {
+      "name": "DomainName",
+      "label": "AD domain",
+      "type": "text",
+      "group": "Domain",
+      "required": false,
+      "transform": "lower",
+      "placeholder": "corp.example.com",
+      "help": "Required when joining.",
+      "visibleWhen": {
+        "field": "JoinDomain",
+        "equals": true
+      },
+      "validation": {
+        "pattern": "^$|^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,63}$",
+        "patternMessage": "DNS domain name, e.g. corp.example.com"
+      }
+    },
+    {
+      "name": "DomainJoinCredential",
+      "label": "Domain join account",
+      "type": "credential",
+      "group": "Domain",
+      "required": false,
+      "help": "Needed unless the VM is already joined.",
+      "vaultTags": [
+        "ad-join"
+      ],
+      "visibleWhen": {
+        "field": "JoinDomain",
+        "equals": true
+      }
+    },
+    {
+      "name": "ComputerOU",
+      "label": "Computer OU (optional)",
+      "type": "text",
+      "group": "Domain",
+      "required": false,
+      "placeholder": "OU=Linux,OU=Servers,DC=corp,DC=example,DC=com",
+      "visibleWhen": {
+        "field": "JoinDomain",
+        "equals": true
+      },
+      "validation": {
+        "maxLength": 250
+      }
+    },
+    {
+      "name": "SudoGroups",
+      "label": "Sudo groups (comma separated)",
+      "type": "text",
+      "group": "Access",
+      "required": false,
+      "placeholder": "linux-admins",
+      "help": "AD groups allowed to log in and use sudo (no spaces in names).",
+      "validation": {
+        "pattern": "^\\s*$|^[A-Za-z0-9._-]+(\\s*,\\s*[A-Za-z0-9._-]+)*$",
+        "patternMessage": "Comma separated group names (letters, digits, . _ -)."
+      }
+    },
+    {
+      "name": "NtpServers",
+      "label": "NTP servers (comma separated)",
+      "type": "text",
+      "group": "Configuration",
+      "required": false,
+      "help": "Empty = keep the current chrony sources.",
+      "validation": {
+        "pattern": "^\\s*$|^[A-Za-z0-9.-]+(\\s*,\\s*[A-Za-z0-9.-]+)*$",
+        "patternMessage": "Comma separated host names or IPv4 addresses."
+      }
+    },
+    {
+      "name": "ExtraPackages",
+      "label": "Extra packages (comma separated)",
+      "type": "text",
+      "group": "Configuration",
+      "required": false,
+      "placeholder": "vim-enhanced, tmux",
+      "validation": {
+        "pattern": "^\\s*$|^[A-Za-z0-9][A-Za-z0-9._+-]*(\\s*,\\s*[A-Za-z0-9][A-Za-z0-9._+-]*)*$",
+        "patternMessage": "Comma separated dnf package names."
+      }
+    },
+    {
+      "name": "ApplyCisBasics",
+      "label": "Apply CIS basics",
+      "type": "boolean",
+      "group": "Configuration",
+      "default": true,
+      "help": "sysctl hardening, no root SSH login, password minlen 14, auditd, firewalld."
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Governance",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

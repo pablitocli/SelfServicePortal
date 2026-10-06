@@ -1,0 +1,73 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "vm-decommission-purge",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Purge decommissioned VMs",
+  "category": "Datacenter operations",
+  "icon": "vm",
+  "summary": "Permanently delete quarantined VMs whose quarantine period has ended.",
+  "description": "Finds VMs in the quarantine folder that carry the decommission prefix, are powered off and whose 'Portal.Decommission' purge date has passed. Dry run (default) only produces the report; otherwise the VMs and their disks are deleted permanently.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Lifecycle",
+    "Decommission"
+  ],
+  "estimatedDuration": "1-15 min",
+  "access": {
+    "roles": [
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "security": {
+    "requireReauth": true
+  },
+  "execution": {
+    "handler": "Remove-VsphereDecommissioned.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 60,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "DryRun",
+      "label": "Dry run (report only, delete nothing)",
+      "type": "boolean",
+      "group": "Purge",
+      "default": true
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Purge",
+      "required": false,
+      "help": "Required when Dry run is off.",
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

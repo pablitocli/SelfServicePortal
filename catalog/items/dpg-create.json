@@ -1,0 +1,177 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "dpg-create",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Distributed Port Group",
+  "category": "Network",
+  "icon": "network",
+  "summary": "Create a VLAN-backed distributed port group on a vSphere Distributed Switch.",
+  "description": "Creates a distributed port group with static (elastic) port binding on the selected VDS, sets the uplink load-balancing policy and the security policy. Pre-checks reject a name already used on any switch of the vCenter and a VLAN already used by another port group of the same switch. The port group is removed again if a later step fails.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Network",
+    "VDS",
+    "VLAN",
+    "Port group"
+  ],
+  "estimatedDuration": "1-5 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "execution": {
+    "handler": "New-VsphereDistributedPortgroup.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 20,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VDSwitch",
+      "label": "Distributed switch",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "vdSwitches",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "VlanId",
+      "label": "VLAN ID",
+      "type": "number",
+      "group": "Port group",
+      "required": true,
+      "help": "Access VLAN 1-4094. Must not be used by another port group of the same switch.",
+      "validation": {
+        "min": 1,
+        "max": 4094
+      }
+    },
+    {
+      "name": "Name",
+      "label": "Port group name",
+      "type": "text",
+      "group": "Port group",
+      "required": true,
+      "transform": "upper",
+      "placeholder": "PG-DC1-120-APP",
+      "help": "Convention: PG-<SITE>-<VLAN>-<PURPOSE>, e.g. PG-DC1-120-APP. Must be unique in the vCenter.",
+      "validation": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{2,79}$",
+        "patternMessage": "3-80 characters: letters, digits, '_', '.', '-' (no spaces)."
+      }
+    },
+    {
+      "name": "Purpose",
+      "label": "Purpose",
+      "type": "text",
+      "group": "Port group",
+      "required": true,
+      "help": "Stored in the port group notes together with the change ticket.",
+      "validation": {
+        "maxLength": 120
+      }
+    },
+    {
+      "name": "NumPorts",
+      "label": "Initial ports",
+      "type": "number",
+      "group": "Port group",
+      "required": true,
+      "default": 8,
+      "help": "Static binding with elastic allocation: the port count grows automatically.",
+      "validation": {
+        "min": 1,
+        "max": 8192
+      }
+    },
+    {
+      "name": "LoadBalancing",
+      "label": "Load balancing",
+      "type": "select",
+      "group": "Policies",
+      "required": true,
+      "default": "LoadBalanceSrcId",
+      "options": [
+        {
+          "value": "LoadBalanceSrcId",
+          "label": "Route based on originating virtual port (default)"
+        },
+        {
+          "value": "LoadBalanceLoadBased",
+          "label": "Route based on physical NIC load"
+        },
+        {
+          "value": "LoadBalanceIP",
+          "label": "Route based on IP hash (requires LACP/EtherChannel)"
+        },
+        {
+          "value": "ExplicitFailover",
+          "label": "Use explicit failover order"
+        }
+      ]
+    },
+    {
+      "name": "SecurityPromiscuous",
+      "label": "Allow promiscuous mode",
+      "type": "boolean",
+      "group": "Policies",
+      "default": false,
+      "help": "Keep off unless an appliance (IDS, nested ESXi) requires it."
+    },
+    {
+      "name": "SecurityMacChanges",
+      "label": "Allow MAC address changes",
+      "type": "boolean",
+      "group": "Policies",
+      "default": false
+    },
+    {
+      "name": "SecurityForgedTransmits",
+      "label": "Allow forged transmits",
+      "type": "boolean",
+      "group": "Policies",
+      "default": false
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Governance",
+      "required": true,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

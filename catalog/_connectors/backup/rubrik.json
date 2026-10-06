@@ -1,0 +1,20 @@
+{
+  "connector": "rubrik",
+  "product": "Rubrik Security Cloud / CDM",
+  "status": "template — not approved",
+  "api": {
+    "type": "GraphQL",
+    "baseUrl": "https://<tenant>.my.rubrik.com/api/graphql",
+    "auth": "Service account client id + secret -> bearer token (POST /api/client_token)",
+    "credentialRef": "<vault id, e.g. backup-rubrik-sa>"
+  },
+  "requiredFields": ["baseUrl", "credentialRef", "slaMapping", "vcenterId"],
+  "policyMapping": {
+    "model": "portal policy id -> SLA Domain (assignSla mutation on the vSphere VM id)",
+    "example": { "Gold": "SLA-Gold", "Silver": "SLA-Silver", "Bronze": "SLA-Bronze" },
+    "none": "assign DO_NOT_PROTECT (existing snapshots keep their retention)",
+    "preferredAlternative": "Rubrik tag-based SLA assignment on the vSphere tag Backup-Policy/<id>"
+  },
+  "permissions": "Custom role: Manage protection on the vCenter object only",
+  "notes": "No secrets in this file. Template only - not loaded by the portal."
+}

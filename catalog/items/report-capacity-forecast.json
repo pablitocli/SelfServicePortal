@@ -1,0 +1,77 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "report-capacity-forecast",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Capacity forecast report",
+  "category": "Reports",
+  "icon": "storage",
+  "summary": "Forecast datastore and cluster memory usage from the daily inventory history.",
+  "description": "Fits a linear trend to the daily inventory samples (data/inventory/history) per datastore (used GB) and per cluster (VM memory vs physical memory, vCPU growth) and shows the days left before the threshold. Needs at least 7 daily samples; the portal records one per day at inventory refresh. Does not connect to vCenter.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Capacity",
+    "Forecast",
+    "Report"
+  ],
+  "estimatedDuration": "1 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "execution": {
+    "handler": "Get-VsphereCapacityForecast.ps1",
+    "requiresVCenter": false,
+    "siteInput": "Site",
+    "timeoutMinutes": 15,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "ForecastDays",
+      "label": "Forecast horizon (days)",
+      "type": "number",
+      "group": "Options",
+      "required": true,
+      "default": 90,
+      "help": "Default from operations.capacity.forecastDays.",
+      "validation": {
+        "min": 7,
+        "max": 730
+      }
+    },
+    {
+      "name": "ThresholdPercent",
+      "label": "Threshold (%)",
+      "type": "number",
+      "group": "Options",
+      "required": true,
+      "default": 85,
+      "help": "Default from operations.capacity.thresholdPercent.",
+      "validation": {
+        "min": 50,
+        "max": 99
+      }
+    }
+  ]
+}

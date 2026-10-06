@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Smoke tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse all PowerShell files
+        shell: pwsh
+        run: |
+          $bad = 0
+          Get-ChildItem -Recurse -Include *.ps1, *.psm1 | ForEach-Object {
+            $e = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$e)
+            foreach ($x in $e) { $bad++; Write-Host "::error file=$($_.FullName),line=$($x.Extent.StartLineNumber)::$($x.Message)" }
+          }
+          if ($bad) { exit 1 }
+      - name: Start-Portal.ps1 stays Windows PowerShell 5.1 parseable
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $e = $null; [void][System.Management.Automation.Language.Parser]::ParseFile("$PWD\Start-Portal.ps1", [ref]$null, [ref]$e)
+          if ($e) { $e | ForEach-Object { Write-Host "::error::$($_.Message)" }; exit 1 }
+      - name: Smoke tests
+        shell: pwsh
+        run: ./tests/Invoke-SmokeTest.ps1
+      - name: Handler tests (PowerCLI / cloud stubs)
+        shell: pwsh
+        run: ./tests/Invoke-HandlerTests.ps1
+      - name: Validate catalog items
+        shell: pwsh
+        run: ./tools/Test-CatalogItem.ps1
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PSScriptAnalyzer (errors only)
+        shell: pwsh
+        # The vault and credential plumbing intentionally build SecureStrings / PSCredentials from decrypted values.
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          $r = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error -ExcludeRule PSAvoidUsingConvertToSecureStringWithPlainText, PSAvoidUsingUsernameAndPasswordParams
+          $r | Format-Table -AutoSize
+          if ($r) { exit 1 }
+      - name: ShellCheck
+        run: shellcheck packaging/linux/*.sh packaging/ova/*.sh packaging/ova/scripts/*.sh packaging/ova/firstboot/*.sh
+      - name: JavaScript syntax
+        run: for f in web/assets/*.js; do node --check "$f"; done

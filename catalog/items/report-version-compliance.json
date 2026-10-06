@@ -1,0 +1,51 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "report-version-compliance",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Version compliance report",
+  "category": "Reports",
+  "icon": "generic",
+  "summary": "Compare vCenter, ESXi, VMware Tools and VM hardware versions with the approved baseline and advisories.",
+  "description": "Read-only. Targets and security advisories come from Admin > Data files > Version baseline. Entities below a target or below the first fixed build of an advisory are NON-COMPLIANT; areas without a target show NOT SET. Produces an HTML report and one CSV per section.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Lifecycle",
+    "Compliance",
+    "Report"
+  ],
+  "estimatedDuration": "1-5 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "execution": {
+    "handler": "Get-VsphereVersionCompliance.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    }
+  ]
+}

@@ -1,0 +1,137 @@
+{
+  "_comment": "Software repository for the 'Agent baseline' item. Only packages with status Approved are installed; Pending ones are listed as skipped. installer is relative to repository.windowsBase / linuxBase, or an absolute UNC path / URL. Edit in Admin > Data files.",
+  "repository": {
+    "windowsBase": "\\\\fileserver.example.com\\software",
+    "linuxBase": "https://repo.example.com/software"
+  },
+  "packages": [
+    {
+      "id": "monitoring-agent-win",
+      "name": "Monitoring agent",
+      "category": "monitoring",
+      "os": "windows",
+      "version": "TBD",
+      "installer": "monitoring/agent.msi",
+      "installArgs": "/qn /norestart",
+      "verify": {
+        "type": "service",
+        "value": "TBD-MonitoringService"
+      },
+      "status": "Pending",
+      "notes": "Set the installer and service name, then approve."
+    },
+    {
+      "id": "edr-agent-win",
+      "name": "EDR agent",
+      "category": "security",
+      "os": "windows",
+      "version": "TBD",
+      "installer": "edr/setup.exe",
+      "installArgs": "/quiet",
+      "verify": {
+        "type": "service",
+        "value": "TBD-EdrService"
+      },
+      "status": "Pending",
+      "notes": ""
+    },
+    {
+      "id": "patch-agent-win",
+      "name": "Patch management agent",
+      "category": "patching",
+      "os": "windows",
+      "version": "TBD",
+      "installer": "patching/agent.msi",
+      "installArgs": "/qn",
+      "verify": {
+        "type": "service",
+        "value": "TBD-PatchService"
+      },
+      "status": "Pending",
+      "notes": ""
+    },
+    {
+      "id": "backup-agent-win",
+      "name": "Backup agent",
+      "category": "backup",
+      "os": "windows",
+      "version": "",
+      "installer": "backup/agent.msi",
+      "installArgs": "/qn",
+      "verify": {
+        "type": "service",
+        "value": "TBD"
+      },
+      "status": "Pending",
+      "notes": "Pending approval: no backup product has been selected yet."
+    },
+    {
+      "id": "monitoring-agent-linux",
+      "name": "Monitoring agent",
+      "category": "monitoring",
+      "os": "linux",
+      "version": "TBD",
+      "installer": "monitoring/agent.rpm",
+      "installArgs": "",
+      "verify": {
+        "type": "service",
+        "value": "TBD-monitoring"
+      },
+      "status": "Pending",
+      "notes": ""
+    },
+    {
+      "id": "edr-agent-linux",
+      "name": "EDR agent",
+      "category": "security",
+      "os": "linux",
+      "version": "TBD",
+      "installer": "edr/agent.rpm",
+      "installArgs": "",
+      "verify": {
+        "type": "service",
+        "value": "TBD-edr"
+      },
+      "status": "Pending",
+      "notes": ""
+    },
+    {
+      "id": "backup-agent-linux",
+      "name": "Backup agent",
+      "category": "backup",
+      "os": "linux",
+      "version": "",
+      "installer": "backup/agent.rpm",
+      "installArgs": "",
+      "verify": {
+        "type": "service",
+        "value": "TBD"
+      },
+      "status": "Pending",
+      "notes": "Pending approval: no backup product has been selected yet."
+    }
+  ],
+  "sets": [
+    {
+      "id": "baseline-windows",
+      "name": "Windows server baseline",
+      "os": "windows",
+      "packages": [
+        "monitoring-agent-win",
+        "edr-agent-win",
+        "patch-agent-win",
+        "backup-agent-win"
+      ]
+    },
+    {
+      "id": "baseline-linux",
+      "name": "Linux server baseline",
+      "os": "linux",
+      "packages": [
+        "monitoring-agent-linux",
+        "edr-agent-linux",
+        "backup-agent-linux"
+      ]
+    }
+  ]
+}

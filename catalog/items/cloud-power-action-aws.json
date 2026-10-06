@@ -1,0 +1,96 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "cloud-power-action-aws",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "AWS power action (by schedule tag)",
+  "category": "Cloud Ops",
+  "icon": "cloud",
+  "summary": "Start or stop every AWS instance whose PowerSchedule tag has a given value.",
+  "description": "Selects resources by the power schedule tag (operations.powerSchedules.tagKey, default PowerSchedule) equal to the value you enter, e.g. office-hours, and starts or stops them (Stop-EC2Instance). Untagged resources are never touched. Runs as a dry run by default. Automatic scheduling is planned as future work.",
+  "owner": "Cloud Operations",
+  "tags": [
+    "AWS",
+    "Power",
+    "Schedule",
+    "FinOps"
+  ],
+  "estimatedDuration": "1-5 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@cloud"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "security": {
+    "requireReauth": false
+  },
+  "execution": {
+    "handler": "Invoke-CloudPowerAction.ps1",
+    "requiresVCenter": false,
+    "cloud": "aws",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Action",
+      "label": "Action",
+      "type": "select",
+      "group": "Action",
+      "required": true,
+      "default": "Stop",
+      "options": [
+        {
+          "value": "Start",
+          "label": "Start"
+        },
+        {
+          "value": "Stop",
+          "label": "Stop"
+        }
+      ]
+    },
+    {
+      "name": "TagValue",
+      "label": "Power schedule tag value",
+      "type": "text",
+      "group": "Action",
+      "required": true,
+      "placeholder": "office-hours",
+      "help": "Resources whose PowerSchedule tag equals this value (case-sensitive).",
+      "validation": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9 ._:/=+@-]{0,63}$",
+        "patternMessage": "1-64 characters: letters, digits, space, . _ : / = + @ -"
+      }
+    },
+    {
+      "name": "DryRun",
+      "label": "Dry run (list only, change nothing)",
+      "type": "boolean",
+      "group": "Action",
+      "default": true
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Governance",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

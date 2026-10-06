@@ -1,0 +1,70 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "report-vsphere-health",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "vSphere health report",
+  "category": "Reports",
+  "icon": "generic",
+  "summary": "Read-only health check of hosts, alarms, clusters, datastores, snapshots and VMware Tools.",
+  "description": "Produces an HTML report and one CSV per section: host connection / maintenance / build / uptime, triggered alarms, cluster HA / DRS / EVC configuration, datastore free space against the site minimum, snapshots older than N days and VMware Tools issues. Optionally searches every datastore for orphaned VMDK files (slow). Nothing is changed.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Health",
+    "Report"
+  ],
+  "estimatedDuration": "2-15 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "execution": {
+    "handler": "Get-VsphereHealthReport.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 60,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "SnapshotAgeDays",
+      "label": "Flag snapshots older than (days)",
+      "type": "number",
+      "group": "Options",
+      "required": true,
+      "default": 7,
+      "validation": {
+        "min": 1,
+        "max": 365
+      }
+    },
+    {
+      "name": "IncludeOrphanedVmdk",
+      "label": "Search for orphaned VMDK files",
+      "type": "boolean",
+      "group": "Options",
+      "default": false,
+      "help": "Browses every datastore; can take a long time on large sites. Results are candidates to review, never deleted."
+    }
+  ]
+}

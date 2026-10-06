@@ -1,0 +1,19 @@
+{
+  "connector": "commvault",
+  "product": "Commvault Complete / Commvault Cloud (CommServe)",
+  "status": "template — not approved",
+  "api": {
+    "type": "REST",
+    "baseUrl": "https://<webserver>/commandcenter/api",
+    "auth": "POST /Login with a portal service account, Authtoken header on later calls",
+    "credentialRef": "<vault id, e.g. backup-commvault-api>"
+  },
+  "requiredFields": ["baseUrl", "credentialRef", "hypervisorName", "planMapping", "verifyCertificate"],
+  "policyMapping": {
+    "model": "portal policy id -> server plan, applied through a VM group whose rule is the vSphere tag",
+    "example": { "Gold": "PLAN-GOLD", "Silver": "PLAN-SILVER", "Bronze": "PLAN-BRONZE" },
+    "none": "VM not matched by any VM group rule (tag removed); optionally add it to the VM group exclusion list"
+  },
+  "permissions": "Role with View + Agent Management on the hypervisor client only",
+  "notes": "No secrets in this file. Template only - not loaded by the portal."
+}

@@ -1,0 +1,36 @@
+# Live configuration and state (created at first start from config/*.default.json)
+config/*.json
+!config/*.default.json
+config/_backup/
+data/*
+!data/.gitkeep
+logs/*
+!logs/.gitkeep
+catalog/_archive/
+
+# Never commit secrets
+*.pfx
+*.key
+*.pem
+!web/**/*.pem
+master.key
+master.key.dpapi
+vault.json
+
+# Build outputs
+packaging/ova/output/
+packaging/ova/*.ova
+*.ova
+*.ovf
+*.vmdk
+dist/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local security scan output
+secret*.txt

@@ -1,0 +1,215 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "datastore-create",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "New datastore (VMFS / NFS)",
+  "category": "Storage",
+  "icon": "storage",
+  "summary": "Create a VMFS 6 or NFS datastore on every host of a cluster.",
+  "description": "VMFS: formats a new LUN (visible on every host of the cluster and unused) as VMFS 6. NFS: mounts an NFS 3 / 4.1 export on every host. Optionally adds the datastore to an existing datastore cluster or creates a new one (Storage DRS manual). Rescans every host, holds the cluster storage lock while running and rolls back on failure. Submitting and approving require your password.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Storage",
+    "Datastore",
+    "VMFS",
+    "NFS"
+  ],
+  "estimatedDuration": "5-15 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "security": {
+    "requireReauth": true
+  },
+  "execution": {
+    "handler": "New-VsphereDatastore.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 60,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Placement",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "Cluster",
+      "label": "Cluster",
+      "type": "select",
+      "group": "Placement",
+      "required": true,
+      "help": "The datastore is created / mounted on every connected host of this cluster.",
+      "source": {
+        "type": "clusters",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "DatastoreType",
+      "label": "Datastore type",
+      "type": "select",
+      "group": "Storage",
+      "required": true,
+      "default": "VMFS",
+      "options": [
+        {
+          "value": "VMFS",
+          "label": "VMFS 6 (block LUN)"
+        },
+        {
+          "value": "NFS",
+          "label": "NFS (export)"
+        }
+      ]
+    },
+    {
+      "name": "Lun",
+      "label": "LUN (storage device)",
+      "type": "select",
+      "group": "Storage",
+      "required": true,
+      "requireReauth": true,
+      "help": "Use 'Rescan storage' to discover new LUNs; every rescan asks for your password and is limited to one per cluster every 10 minutes.",
+      "visibleWhen": {
+        "field": "DatastoreType",
+        "equals": "VMFS"
+      },
+      "source": {
+        "type": "storageDevices",
+        "dependsOn": [
+          "Site",
+          "Cluster"
+        ]
+      }
+    },
+    {
+      "name": "NfsServer",
+      "label": "NFS server (name or IP)",
+      "type": "text",
+      "group": "Storage",
+      "required": true,
+      "placeholder": "nas01.example.local",
+      "visibleWhen": {
+        "field": "DatastoreType",
+        "equals": "NFS"
+      },
+      "validation": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$",
+        "patternMessage": "Host name or IPv4 address."
+      }
+    },
+    {
+      "name": "NfsPath",
+      "label": "NFS export path",
+      "type": "text",
+      "group": "Storage",
+      "required": true,
+      "placeholder": "/vol/ds_app_01",
+      "help": "The export must grant root access (no_root_squash / Root Access) to every host's VMkernel IP.",
+      "visibleWhen": {
+        "field": "DatastoreType",
+        "equals": "NFS"
+      },
+      "validation": {
+        "pattern": "^/",
+        "patternMessage": "Must start with '/'."
+      }
+    },
+    {
+      "name": "NfsVersion",
+      "label": "NFS version",
+      "type": "select",
+      "group": "Storage",
+      "required": true,
+      "default": "3",
+      "visibleWhen": {
+        "field": "DatastoreType",
+        "equals": "NFS"
+      },
+      "options": [
+        {
+          "value": "3",
+          "label": "NFS 3"
+        },
+        {
+          "value": "4.1",
+          "label": "NFS 4.1"
+        }
+      ]
+    },
+    {
+      "name": "DatastoreName",
+      "label": "Datastore name",
+      "type": "text",
+      "group": "Datastore",
+      "required": true,
+      "placeholder": "DS-APP-01",
+      "help": "3-42 characters; must be unused in the vCenter.",
+      "validation": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{2,41}$",
+        "patternMessage": "3-42 characters: letters, digits, '_' and '-', starting with a letter or digit."
+      }
+    },
+    {
+      "name": "DatastoreCluster",
+      "label": "Add to datastore cluster",
+      "type": "select",
+      "group": "Datastore",
+      "required": false,
+      "help": "Optional. Leave empty for none. Only datastores of the same type can share a datastore cluster.",
+      "source": {
+        "type": "datastoreClusters",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "NewDatastoreCluster",
+      "label": "Or create a new datastore cluster",
+      "type": "text",
+      "group": "Datastore",
+      "required": false,
+      "help": "Optional; Storage DRS in manual mode. Leave empty when you selected an existing datastore cluster.",
+      "validation": {
+        "pattern": "^$|^[A-Za-z0-9][A-Za-z0-9_-]{2,41}$",
+        "patternMessage": "3-42 characters: letters, digits, '_' and '-'."
+      }
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Governance",
+      "required": true,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

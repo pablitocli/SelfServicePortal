@@ -1,0 +1,74 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "report-hardening",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Hardening compliance report",
+  "category": "Reports",
+  "icon": "security",
+  "summary": "Check ESXi advanced settings, services, NTP and optionally VM settings against the hardening baseline.",
+  "description": "Read-only assessment against Admin > Data files > Hardening baseline (ESXi advanced settings, services, NTP and VM advanced settings). Each check is PASS, FAIL or NOT SET (absent and the product default does not meet the control). Remediation will be a separate item that requires approval.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Security",
+    "Hardening",
+    "Compliance",
+    "Report"
+  ],
+  "estimatedDuration": "2-10 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "execution": {
+    "handler": "Get-VsphereHardeningReport.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 60,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "Cluster",
+      "label": "Cluster",
+      "type": "select",
+      "group": "Scope",
+      "required": false,
+      "help": "Leave empty to check every host of the site.",
+      "source": {
+        "type": "clusters",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "IncludeVms",
+      "label": "Include VM advanced settings",
+      "type": "boolean",
+      "group": "Scope",
+      "default": false,
+      "help": "Also checks the VM settings of the baseline for every VM in scope."
+    }
+  ]
+}

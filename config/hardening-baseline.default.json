@@ -1,0 +1,169 @@
+{
+  "_comment": "Read-only checks for the 'Hardening compliance' report, based on common vSphere security configuration guidance. Review against the guide version your organisation follows. operator: eq | ne | le | ge | range [min,max] | nonEmpty. defaultCompliant: the product default already meets the control when the setting is absent.",
+  "esxiAdvancedSettings": [
+    {
+      "id": "esxi-shell-interactive-timeout",
+      "name": "UserVars.ESXiShellInteractiveTimeOut",
+      "operator": "range",
+      "expected": [
+        1,
+        900
+      ],
+      "description": "Idle ESXi Shell / SSH sessions are closed."
+    },
+    {
+      "id": "esxi-shell-timeout",
+      "name": "UserVars.ESXiShellTimeOut",
+      "operator": "range",
+      "expected": [
+        1,
+        900
+      ],
+      "description": "ESXi Shell and SSH services stop automatically."
+    },
+    {
+      "id": "esxi-dcui-timeout",
+      "name": "UserVars.DcuiTimeOut",
+      "operator": "range",
+      "expected": [
+        1,
+        600
+      ],
+      "description": "DCUI idle timeout."
+    },
+    {
+      "id": "esxi-hostclient-timeout",
+      "name": "UserVars.HostClientSessionTimeout",
+      "operator": "range",
+      "expected": [
+        1,
+        900
+      ],
+      "description": "Host Client idle timeout."
+    },
+    {
+      "id": "esxi-account-lockout",
+      "name": "Security.AccountLockFailures",
+      "operator": "range",
+      "expected": [
+        1,
+        5
+      ],
+      "description": "Lock local accounts after failed logins."
+    },
+    {
+      "id": "esxi-account-unlock",
+      "name": "Security.AccountUnlockTime",
+      "operator": "ge",
+      "expected": 900,
+      "description": "Locked accounts stay locked at least 15 minutes."
+    },
+    {
+      "id": "esxi-password-history",
+      "name": "Security.PasswordHistory",
+      "operator": "ge",
+      "expected": 5,
+      "description": "Password reuse prevented."
+    },
+    {
+      "id": "esxi-mob-disabled",
+      "name": "Config.HostAgent.plugins.solo.enableMob",
+      "operator": "eq",
+      "expected": false,
+      "description": "Managed Object Browser disabled."
+    },
+    {
+      "id": "esxi-tps-salting",
+      "name": "Mem.ShareForceSalting",
+      "operator": "eq",
+      "expected": 2,
+      "description": "Inter-VM transparent page sharing disabled."
+    },
+    {
+      "id": "esxi-bpdu-filter",
+      "name": "Net.BlockGuestBPDU",
+      "operator": "eq",
+      "expected": 1,
+      "description": "Guest BPDU filter enabled."
+    },
+    {
+      "id": "esxi-shell-warning",
+      "name": "UserVars.SuppressShellWarning",
+      "operator": "eq",
+      "expected": 0,
+      "description": "Shell warning not suppressed."
+    },
+    {
+      "id": "esxi-remote-syslog",
+      "name": "Syslog.global.logHost",
+      "operator": "nonEmpty",
+      "expected": null,
+      "description": "Logs sent to a remote syslog collector."
+    }
+  ],
+  "esxiServices": [
+    {
+      "key": "TSM-SSH",
+      "running": false,
+      "policy": "off",
+      "description": "SSH stopped and not started automatically."
+    },
+    {
+      "key": "TSM",
+      "running": false,
+      "policy": "off",
+      "description": "ESXi Shell stopped and not started automatically."
+    }
+  ],
+  "esxiNtpRequired": true,
+  "vmAdvancedSettings": [
+    {
+      "id": "vm-copy-disable",
+      "name": "isolation.tools.copy.disable",
+      "operator": "eq",
+      "expected": "TRUE",
+      "defaultCompliant": true,
+      "description": "Console copy disabled."
+    },
+    {
+      "id": "vm-paste-disable",
+      "name": "isolation.tools.paste.disable",
+      "operator": "eq",
+      "expected": "TRUE",
+      "defaultCompliant": true,
+      "description": "Console paste disabled."
+    },
+    {
+      "id": "vm-diskshrink-disable",
+      "name": "isolation.tools.diskShrink.disable",
+      "operator": "eq",
+      "expected": "TRUE",
+      "defaultCompliant": true,
+      "description": "Virtual disk shrinking disabled."
+    },
+    {
+      "id": "vm-diskwiper-disable",
+      "name": "isolation.tools.diskWiper.disable",
+      "operator": "eq",
+      "expected": "TRUE",
+      "defaultCompliant": true,
+      "description": "Virtual disk wiping disabled."
+    },
+    {
+      "id": "vm-remote-display",
+      "name": "RemoteDisplay.maxConnections",
+      "operator": "le",
+      "expected": 1,
+      "defaultCompliant": false,
+      "description": "Only one remote console connection."
+    },
+    {
+      "id": "vm-setinfo-limit",
+      "name": "tools.setInfo.sizeLimit",
+      "operator": "le",
+      "expected": 1048576,
+      "defaultCompliant": true,
+      "description": "VMX file growth from guest limited."
+    }
+  ]
+}

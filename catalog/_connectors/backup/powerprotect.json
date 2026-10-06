@@ -1,0 +1,19 @@
+{
+  "connector": "powerprotect",
+  "product": "Dell PowerProtect Data Manager",
+  "status": "template — not approved",
+  "api": {
+    "type": "REST",
+    "baseUrl": "https://<ppdm>:8443/api/v2",
+    "auth": "POST /api/v2/login with a portal service account, bearer token",
+    "credentialRef": "<vault id, e.g. backup-ppdm-api>"
+  },
+  "requiredFields": ["baseUrl", "credentialRef", "protectionPolicyMapping", "verifyCertificate"],
+  "policyMapping": {
+    "model": "portal policy id -> protection policy, assigned by a protection rule on the vSphere tag",
+    "example": { "Gold": "PP-VM-GOLD", "Silver": "PP-VM-SILVER", "Bronze": "PP-VM-BRONZE" },
+    "none": "tag removed: the protection rule unassigns the VM at the next discovery"
+  },
+  "permissions": "Custom role: Protection policy and rule management only",
+  "notes": "No secrets in this file. Template only - not loaded by the portal."
+}

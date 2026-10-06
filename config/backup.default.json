@@ -1,0 +1,54 @@
+{
+  "_comment": "Vendor-agnostic backup policies for the 'Backup policy' item. connector vsphereTag assigns a vSphere tag (category tagCategory, tag = policy id) that backup products can use for dynamic job selection. The connectors section holds templates that are activated once a backup product is approved.",
+  "connector": "vsphereTag",
+  "tagCategory": "Backup-Policy",
+  "cloudTagName": "BackupPolicy",
+  "policies": [
+    {
+      "id": "Gold",
+      "name": "Gold",
+      "description": "Daily backup, 30 days retention, weekly copy off-site"
+    },
+    {
+      "id": "Silver",
+      "name": "Silver",
+      "description": "Daily backup, 14 days retention"
+    },
+    {
+      "id": "Bronze",
+      "name": "Bronze",
+      "description": "Weekly backup, 4 weeks retention"
+    },
+    {
+      "id": "None",
+      "name": "No backup",
+      "description": "Excluded from backup (test / disposable VMs)"
+    }
+  ],
+  "connectors": {
+    "veeam": {
+      "enabled": false,
+      "_comment": "Template: Veeam Backup & Replication - not active."
+    },
+    "commvault": {
+      "enabled": false,
+      "_comment": "Template - not active."
+    },
+    "rubrik": {
+      "enabled": false,
+      "_comment": "Template - not active."
+    },
+    "cohesity": {
+      "enabled": false,
+      "_comment": "Template - not active."
+    },
+    "netbackup": {
+      "enabled": false,
+      "_comment": "Template - not active."
+    },
+    "powerprotect": {
+      "enabled": false,
+      "_comment": "Template - not active."
+    }
+  }
+}

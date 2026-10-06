@@ -1,0 +1,471 @@
+{
+  "_comment": "Self-Service Portal - global configuration. Most settings are editable in Admin > Customization / vCenter connections / Cloud connections.",
+  "portal": {
+    "name": "Self-Service Portal",
+    "organization": "Your Organization",
+    "address": "*",
+    "port": 8443,
+    "protocol": "Https",
+    "certificateThumbprint": "TBD-CERT-THUMBPRINT",
+    "certificateStoreLocation": "LocalMachine",
+    "sessionSecretEnvVar": "SSP_SESSION_SECRET",
+    "certificateFile": "",
+    "certificateKeyFile": "",
+    "certificatePasswordEnvVar": ""
+  },
+  "branding": {
+    "productName": "Self-Service Portal",
+    "organization": "Your Organization",
+    "tagline": "Infrastructure services on demand",
+    "primaryColor": "#0a1f3c",
+    "accentColor": "#2f6fb8",
+    "logoFile": "",
+    "loginMessage": "Sign in with your corporate account.",
+    "footerText": "Confidential - Internal Use. Access is logged and audited.",
+    "supportContact": ""
+  },
+  "auth": {
+    "_comment": "Sign-in: local accounts (config/local-users.json) and LDAP providers (Active Directory / OpenLDAP). Manage in Admin > Identity.",
+    "providers": [
+      {
+        "id": "corp",
+        "name": "Active Directory",
+        "enabled": false,
+        "flavor": "ad",
+        "domains": [
+          "corp.example.com",
+          "CORP"
+        ],
+        "hosts": [
+          "dc01.corp.example.com",
+          "dc02.corp.example.com"
+        ],
+        "port": 636,
+        "security": "ldaps",
+        "baseDn": "DC=corp,DC=example,DC=com",
+        "bindMode": "direct",
+        "upnSuffix": "corp.example.com",
+        "usernamePrefix": "CORP",
+        "groupMode": "nested",
+        "tls": {
+          "verify": true,
+          "caFile": ""
+        },
+        "timeoutSeconds": 10
+      }
+    ],
+    "defaultProvider": "corp",
+    "roleMapping": {
+      "Admin": [
+        "SSP-Admins"
+      ],
+      "Approver": [
+        "SSP-Approvers"
+      ],
+      "Requester": [
+        "SSP-Requesters"
+      ],
+      "CatalogAdmin": [
+        "SSP-CatalogAdmins"
+      ],
+      "SecurityAdmin": [
+        "SSP-SecurityAdmins"
+      ],
+      "VaultAdmin": [
+        "SSP-VaultAdmins"
+      ]
+    },
+    "allowSelfApproval": false,
+    "localUsers": {
+      "_comment": "Local accounts for first setup and break-glass. When disabled, only accounts flagged breakGlass can sign in.",
+      "enabled": true,
+      "file": "config/local-users.json"
+    }
+  },
+  "security": {
+    "session": {
+      "idleTimeoutMinutes": 30,
+      "absoluteTimeoutMinutes": 480,
+      "warningSeconds": 120,
+      "reauthWindowMinutes": 5
+    },
+    "password": {
+      "minLength": 14,
+      "requireClasses": 3,
+      "history": 5,
+      "maxAgeDays": 0
+    },
+    "lockout": {
+      "threshold": 5,
+      "windowMinutes": 15,
+      "durationMinutes": 15
+    },
+    "mfa": {
+      "requiredRoles": [
+        "Admin",
+        "SecurityAdmin",
+        "VaultAdmin"
+      ],
+      "issuer": ""
+    },
+    "adminAllowedCidrs": [],
+    "trustedProxies": [],
+    "separationOfDuties": {
+      "vaultAdminCanApprove": false
+    }
+  },
+  "vault": {
+    "_comment": "Credential vault (AES-256-GCM). keyProvider: auto | keyfile (SSP_VAULT_KEYFILE) | dpapi (Windows) | env (SSP_VAULT_KEY).",
+    "keyProvider": "auto",
+    "maxVersions": 5
+  },
+  "teams": [
+    {
+      "id": "Infrastructure",
+      "name": "Infrastructure Operations",
+      "adGroups": [
+        "SSP-Team-Infrastructure"
+      ]
+    },
+    {
+      "id": "Cloud",
+      "name": "Cloud Operations",
+      "adGroups": [
+        "SSP-Team-Cloud"
+      ]
+    }
+  ],
+  "catalog": {
+    "_comment": "Deployment mapping for the shipped catalog items. teamRoles: items reference \"@datacenter\" / \"@cloud\" in access.teams; map each role to one of your team ids. siteValues: per-site values that items reference as \"@site:<key>\" in execution.fixedParameters; each site stores them in sites[].catalogValues (Admin > vCenter connections).",
+    "teamRoles": {
+      "datacenter": "Infrastructure",
+      "cloud": "Cloud"
+    },
+    "siteValues": [
+      {
+        "key": "windowsTemplate",
+        "label": "Windows Server 2025 template",
+        "help": "vSphere template cloned by the Windows build items.",
+        "usedBy": [
+          "vm-windows-2025",
+          "blueprint-three-tier"
+        ],
+        "default": "TBD-TPL-WIN2025"
+      },
+      {
+        "key": "windowsCustomizationSpec",
+        "label": "Windows customization specification",
+        "help": "Guest customization spec (hostname, network) for Windows builds.",
+        "usedBy": [
+          "vm-windows-2025",
+          "blueprint-three-tier"
+        ],
+        "default": "TBD-WIN2025-BASE"
+      },
+      {
+        "key": "linuxTemplate",
+        "label": "AlmaLinux template",
+        "help": "vSphere template cloned by the AlmaLinux build item.",
+        "usedBy": [
+          "vm-almalinux"
+        ],
+        "default": "TBD-TPL-ALMALINUX"
+      },
+      {
+        "key": "linuxCustomizationSpec",
+        "label": "Linux customization specification",
+        "help": "Guest customization spec for Linux builds.",
+        "usedBy": [
+          "vm-almalinux"
+        ],
+        "default": "TBD-ALMALINUX-BASE"
+      },
+      {
+        "key": "sqlServerMediaPath",
+        "label": "SQL Server 2022 media path",
+        "help": "UNC path with setup.exe, reachable from the Windows guests.",
+        "usedBy": [
+          "sql-server-2022",
+          "blueprint-three-tier"
+        ],
+        "default": "TBD-\\\\fileserver\\software\\SQL2022"
+      }
+    ]
+  },
+  "vmNotes": {
+    "enabled": true,
+    "title": "VM notes",
+    "fields": [
+      {
+        "key": "Application",
+        "label": "Application / service",
+        "type": "text",
+        "required": true,
+        "help": "Business application hosted on the VM."
+      },
+      {
+        "key": "Environment",
+        "label": "Environment",
+        "type": "select",
+        "required": true,
+        "options": [
+          "Production",
+          "Pre-production",
+          "QA",
+          "Development",
+          "Lab"
+        ]
+      },
+      {
+        "key": "BusinessOwner",
+        "label": "Business owner",
+        "type": "text",
+        "required": false
+      },
+      {
+        "key": "SupportGroup",
+        "label": "Support group",
+        "type": "text",
+        "required": false
+      },
+      {
+        "key": "BackupPolicy",
+        "label": "Backup policy",
+        "type": "select",
+        "required": false,
+        "options": [
+          "Standard",
+          "Extended",
+          "None"
+        ]
+      },
+      {
+        "key": "PatchWindow",
+        "label": "Patch window",
+        "type": "text",
+        "required": false,
+        "help": "e.g. Sun 02:00-06:00"
+      },
+      {
+        "key": "Expiration",
+        "label": "Expiration / review date",
+        "type": "text",
+        "required": false,
+        "help": "YYYY-MM-DD, empty = permanent",
+        "pattern": "^$|^\\d{4}-\\d{2}-\\d{2}$"
+      }
+    ]
+  },
+  "jobs": {
+    "maxConcurrent": 3,
+    "dispatcherIntervalSeconds": 10,
+    "pwshPath": "pwsh",
+    "defaultTimeoutMinutes": 60,
+    "rollbackOnFailure": true
+  },
+  "automation": {
+    "_comment": "Folders (besides automation/handlers) from which catalog handlers may run. Absolute or relative to the portal root.",
+    "allowedHandlerRoots": []
+  },
+  "inventory": {
+    "refreshIntervalMinutes": 30,
+    "staleAfterMinutes": 120
+  },
+  "sites": [
+    {
+      "code": "DC1",
+      "name": "Primary Datacenter",
+      "enabled": false,
+      "vcenter": "vcenter01.corp.example.com",
+      "credential": {
+        "type": "Vault",
+        "id": "vcenter-dc1"
+      },
+      "invalidCertificateAction": "Ignore",
+      "defaults": {
+        "vmFolder": "Portal-Provisioned",
+        "dnsDomain": "corp.example.com",
+        "dnsServers": [],
+        "minDatastoreFreePercent": 15,
+        "allowedClusters": [
+          "CL-APP-01",
+          "CL-DB-01"
+        ],
+        "portgroupFilter": ".*",
+        "workloadClusters": {
+          "App": "CL-APP-01",
+          "DB": "CL-DB-01"
+        }
+      },
+      "catalogValues": {
+        "windowsTemplate": "TBD-TPL-WIN2025",
+        "windowsCustomizationSpec": "TBD-WIN2025-BASE",
+        "linuxTemplate": "TBD-TPL-ALMALINUX",
+        "linuxCustomizationSpec": "TBD-ALMALINUX-BASE",
+        "sqlServerMediaPath": "TBD-\\\\fileserver\\software\\SQL2022"
+      }
+    },
+    {
+      "code": "DC2",
+      "name": "Secondary Datacenter",
+      "enabled": false,
+      "vcenter": "vcenter02.corp.example.com",
+      "credential": {
+        "type": "Vault",
+        "id": "vcenter-dc2"
+      },
+      "invalidCertificateAction": "Ignore",
+      "defaults": {
+        "vmFolder": "Portal-Provisioned",
+        "dnsDomain": "corp.example.com",
+        "dnsServers": [],
+        "minDatastoreFreePercent": 15,
+        "allowedClusters": [
+          "CL-APP-02",
+          "CL-DB-02"
+        ],
+        "portgroupFilter": ".*",
+        "workloadClusters": {
+          "App": "CL-APP-02",
+          "DB": "CL-DB-02"
+        }
+      },
+      "catalogValues": {
+        "windowsTemplate": "TBD-TPL-WIN2025",
+        "windowsCustomizationSpec": "TBD-WIN2025-BASE",
+        "linuxTemplate": "TBD-TPL-ALMALINUX",
+        "linuxCustomizationSpec": "TBD-ALMALINUX-BASE",
+        "sqlServerMediaPath": "TBD-\\\\fileserver\\software\\SQL2022"
+      }
+    }
+  ],
+  "clouds": {
+    "aws": {
+      "enabled": false,
+      "displayName": "AWS",
+      "authMode": "AccessKey",
+      "accessKeyId": "",
+      "roleArn": "",
+      "region": "us-east-1",
+      "vpcId": "",
+      "subnets": [],
+      "securityGroupIds": [],
+      "keyPairName": "",
+      "instanceTypes": [
+        "t3.medium",
+        "t3.large",
+        "m6i.large",
+        "m6i.xlarge",
+        "r6i.large"
+      ],
+      "images": {
+        "Windows2025": {
+          "ssmParameter": "/aws/service/ami-windows-latest/Windows_Server-2025-English-Full-Base",
+          "amiId": ""
+        },
+        "AlmaLinux": {
+          "ssmParameter": "",
+          "amiId": "",
+          "ownerId": "764336703387",
+          "namePattern": "AlmaLinux OS 9*x86_64*"
+        }
+      },
+      "defaultTags": {
+        "ManagedBy": "SelfService-Portal"
+      },
+      "credentialRef": ""
+    },
+    "azure": {
+      "enabled": false,
+      "displayName": "Azure",
+      "authMode": "ServicePrincipal",
+      "tenantId": "",
+      "subscriptionId": "",
+      "clientId": "",
+      "location": "eastus",
+      "resourceGroup": "",
+      "vnetResourceGroup": "",
+      "vnetName": "",
+      "subnets": [],
+      "nsgName": "",
+      "vmSizes": [
+        "Standard_B2ms",
+        "Standard_D2s_v5",
+        "Standard_D4s_v5",
+        "Standard_E2s_v5"
+      ],
+      "adminUsername": "sspadmin",
+      "sshPublicKey": "",
+      "keyVaultName": "",
+      "images": {
+        "Windows2025": {
+          "urn": "MicrosoftWindowsServer:WindowsServer:2025-datacenter-azure-edition:latest",
+          "plan": false
+        },
+        "AlmaLinux": {
+          "urn": "almalinux:almalinux-x86_64:9-gen2:latest",
+          "plan": true
+        }
+      },
+      "defaultTags": {
+        "ManagedBy": "SelfService-Portal"
+      },
+      "credentialRef": ""
+    }
+  },
+  "_migrations": [
+    "cert-ignore-2026-09",
+    "clouds-2026-09",
+    "examples-2025",
+    "teams-2026-10",
+    "vmnotes-2026-10",
+    "team-scopes-2026-10",
+    "identity-2026-10"
+  ],
+  "operations": {
+    "storage": {
+      "rescanCooldownMinutes": 10,
+      "lockTimeoutMinutes": 30,
+      "minLunSizeGB": 1,
+      "datastoreNamePattern": "^[A-Za-z0-9][A-Za-z0-9_-]{2,41}$"
+    },
+    "decommission": {
+      "quarantineFolder": "Portal-Quarantine",
+      "quarantineDays": 14,
+      "renamePrefix": "DECOM-",
+      "protectedNamePattern": "^(vCLS|vcsa|vcenter|nsx)"
+    },
+    "snapshots": {
+      "defaultMaxAgeDays": 7,
+      "protectedDescriptionPattern": "(?i)keep|do not delete|backup"
+    },
+    "testClones": {
+      "folder": "Portal-TestClones",
+      "isolatedPortgroup": "",
+      "maxDays": 7,
+      "namePrefix": "TST-"
+    },
+    "rightSizing": {
+      "lookbackDays": 30,
+      "cpuLowPercent": 20,
+      "cpuHighPercent": 80,
+      "memoryLowPercent": 30,
+      "memoryHighPercent": 85
+    },
+    "certificates": {
+      "warningDays": 60,
+      "criticalDays": 30
+    },
+    "capacity": {
+      "forecastDays": 90,
+      "thresholdPercent": 85
+    },
+    "powerSchedules": {
+      "tagKey": "PowerSchedule",
+      "timeZone": "UTC"
+    },
+    "reports": {
+      "retentionDays": 180
+    }
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "vm-power",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "VM power action",
+  "category": "Datacenter operations",
+  "icon": "vm",
+  "summary": "Start, gracefully shut down or restart an existing VM.",
+  "description": "Power operations on an existing VM. Shutdown and restart are graceful (VMware Tools); Reset is a hard reset.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Day 2",
+    "Power"
+  ],
+  "estimatedDuration": "1-10 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "execution": {
+    "handler": "Invoke-VsphereVmPower.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "Action",
+      "label": "Action",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "options": [
+        {
+          "value": "Start",
+          "label": "Power on"
+        },
+        {
+          "value": "Shutdown",
+          "label": "Shut down guest"
+        },
+        {
+          "value": "Restart",
+          "label": "Restart guest"
+        },
+        {
+          "value": "Reset",
+          "label": "Hard reset"
+        }
+      ]
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Change",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

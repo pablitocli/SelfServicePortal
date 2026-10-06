@@ -1,0 +1,130 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "host-maintenance",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "ESXi Host Maintenance Mode",
+  "category": "Datacenter operations",
+  "icon": "security",
+  "summary": "Put an ESXi host into maintenance mode (DRS evacuation) or take it out again.",
+  "description": "Enter: checks N+1 memory capacity of the remaining hosts and that DRS is fully automated, then enters maintenance mode and lets DRS evacuate the VMs (vSAN: ensure accessibility). Exit: reconnects the host to the cluster. The VMs on the host, the re-authentication record and the reason are kept as evidence in the job log and the audit trail. Admin only.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "ESXi",
+    "Maintenance",
+    "DRS"
+  ],
+  "estimatedDuration": "5-60 min",
+  "access": {
+    "roles": [
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "security": {
+    "requireReauth": true
+  },
+  "execution": {
+    "handler": "Set-VsphereHostMaintenance.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 120,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "Cluster",
+      "label": "Cluster",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "clusters",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "HostName",
+      "label": "ESXi host",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "hosts",
+        "dependsOn": [
+          "Site",
+          "Cluster"
+        ]
+      }
+    },
+    {
+      "name": "Action",
+      "label": "Action",
+      "type": "select",
+      "group": "Maintenance",
+      "required": true,
+      "default": "Enter",
+      "options": [
+        {
+          "value": "Enter",
+          "label": "Enter maintenance mode (evacuate)"
+        },
+        {
+          "value": "Exit",
+          "label": "Exit maintenance mode"
+        }
+      ]
+    },
+    {
+      "name": "EvacuatePoweredOff",
+      "label": "Also move powered-off / suspended VMs",
+      "type": "boolean",
+      "group": "Maintenance",
+      "default": true,
+      "visibleWhen": {
+        "field": "Action",
+        "equals": "Enter"
+      },
+      "help": "Powered-on VMs are always evacuated by DRS."
+    },
+    {
+      "name": "Reason",
+      "label": "Reason",
+      "type": "textarea",
+      "group": "Governance",
+      "required": true,
+      "help": "Kept as evidence in the audit trail.",
+      "validation": {
+        "maxLength": 500
+      }
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Governance",
+      "required": true,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

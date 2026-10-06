@@ -1,0 +1,21 @@
+{
+  "connector": "veeam",
+  "product": "Veeam Backup & Replication (v12+)",
+  "status": "template — not approved",
+  "api": {
+    "type": "REST",
+    "baseUrl": "https://<vbr-server>:9419/api/v1",
+    "apiVersionHeader": "x-api-version: 1.2-rev0",
+    "auth": "OAuth2 password grant (POST /api/oauth2/token) with a portal service account",
+    "credentialRef": "<vault id, e.g. backup-veeam-api>"
+  },
+  "requiredFields": ["baseUrl", "credentialRef", "jobMapping", "verifyCertificate"],
+  "policyMapping": {
+    "model": "portal policy id -> backup job name (VMware backup job)",
+    "example": { "Gold": "JOB-VM-GOLD", "Silver": "JOB-VM-SILVER", "Bronze": "JOB-VM-BRONZE" },
+    "none": "remove the VM from every mapped job (exclusion list)",
+    "preferredAlternative": "keep vsphereTag: configure each job with the vSphere tag Backup-Policy/<id> as its only object, no connector needed"
+  },
+  "permissions": "Veeam Backup Operator role is not enough to edit jobs; a custom role limited to the mapped jobs is required",
+  "notes": "No secrets in this file. Template only - not loaded by the portal."
+}
