@@ -79,7 +79,7 @@ Items are JSON files in `catalog/items/`. Start from `catalog/_templates/new-ite
 | Property | Description |
 |---|---|
 | `roles` | Roles that see the item. Default when omitted: `Requester`, `Approver`, `Admin`. Valid roles: `Requester`, `Approver`, `Admin`, `CatalogAdmin`, `SecurityAdmin`, `VaultAdmin`. The `Admin` role implicitly holds every role. |
-| `teams` | Team ids from Admin > Customization > Teams (`portal.config.json` → `teams[].id`). Empty or omitted means every team. Admins see every item. See [11](#11-team-scoping-and-approvals). |
+| `teams` | Team ids from Admin > Customization > Teams (`portal.config.json` → `teams[].id`), or **team roles** `@datacenter` / `@cloud`, which the portal maps to team ids with `catalog.teamRoles` (Admin > Customization > Teams). Shipped items use team roles so they carry no organisation-specific team names. Empty or omitted means every team. Admins see every item. See [11](#11-team-scoping-and-approvals). |
 
 ### 2.3 `approval`
 
@@ -97,7 +97,7 @@ Items are JSON files in `catalog/items/`. Start from `catalog/_templates/new-ite
 | `siteInput` | `Site` | Name of the input that selects the site/vCenter. Inventory lookups depend on it. |
 | `cloud` | none | `aws` or `azure`. The runner authenticates with Admin > Cloud connections and passes the session as `Context.Cloud`. Cloud items must set `requiresVCenter: false`. |
 | `timeoutMinutes` | `jobs.defaultTimeoutMinutes` (60) | The dispatcher kills the runner process after this time and marks the request `Failed`. Schema range: 1-1440. |
-| `fixedParameters` | `{}` | Handler parameters that the requester never sees, for example template or customization spec. A value can be a scalar or a **per-site map**: `{ "DC1": "TPL-A", "DC2": "TPL-B", "*": "TPL-DEFAULT" }`. The runner resolves the map with the selected site, and `*` is the fallback. Fixed parameters also count as form values in lookups, so a fixed `Workload` filters the `datastores` lookup. |
+| `fixedParameters` | `{}` | Handler parameters that the requester never sees, for example template or customization spec. A value can be a scalar, a **per-site value** `"@site:<key>"` (read from `sites[].catalogValues.<key>` of the selected site; the key must be declared in `catalog.siteValues`, see [configuration.md](configuration.md#316-catalog)), or a per-site map `{ "DC1": "TPL-A", "*": "TPL-DEFAULT" }` (`*` is the fallback). Prefer `@site:` for anything shared or published: the item then contains no site codes or names. The runner refuses to start a job while a resolved value is empty or starts with `TBD-`. Fixed parameters also count as form values in lookups, so a fixed `Workload` filters the `datastores` lookup. |
 | `credentials` | `{}` | Fixed vault bindings: `{ "HandlerParameter": "vault-entry-id" }`. At run time the runner decrypts the entry and passes a `[pscredential]`. The vault id must match `^[a-z0-9][a-z0-9._-]{1,62}$`, and the entry's scope must allow this item. See [vault.md](vault.md). |
 
 Example (from `vm-windows-2025.json`):
@@ -110,8 +110,8 @@ Example (from `vm-windows-2025.json`):
   "timeoutMinutes": 60,
   "fixedParameters": {
     "GuestFamily": "Windows",
-    "Template":          { "DC1": "TPL-WIN2025", "DC2": "TPL-WIN2025-DC2" },
-    "CustomizationSpec": { "*": "WIN2025-BASE" }
+    "Template":          "@site:windowsTemplate",
+    "CustomizationSpec": "@site:windowsCustomizationSpec"
   }
 }
 ```

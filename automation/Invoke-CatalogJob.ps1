@@ -107,7 +107,17 @@ try {
     # Fixed parameters may be per-site maps: { "DC1": "TPL-A", "DC2": "TPL-B" }.
     $siteForFixed = [string]$req.inputs[$req.execution.siteInput]
     foreach ($k in $req.execution.fixedParameters.Keys) {
-        if ($declared -contains $k) { $params[$k] = Resolve-PortalSiteValue -Value $req.execution.fixedParameters[$k] -Site $siteForFixed }
+        if ($declared -notcontains $k) { continue }
+        $raw = $req.execution.fixedParameters[$k]
+        $val = Resolve-PortalSiteValue -Value $raw -Site $siteForFixed
+        # Deployment values must be configured before the item runs (sites[].catalogValues, Admin > vCenter connections).
+        if ($raw -is [string] -and $raw.StartsWith('@site:') -and [string]::IsNullOrWhiteSpace([string]$val)) {
+            throw "Site $siteForFixed has no value for '$($raw.Substring(6))' (Admin > vCenter connections > Catalog values)."
+        }
+        if ($val -is [string] -and $val.StartsWith('TBD-')) {
+            throw "Parameter $k is not configured for site ${siteForFixed}: '$val'. Set the real value (Admin > vCenter connections > Catalog values, or the item's fixed parameters)."
+        }
+        $params[$k] = $val
     }
     if ($declared -contains 'Context') { $params['Context'] = $context }
     # Vault credentials: fixed bindings (execution.credentials) and "credential" inputs (value = vault id).

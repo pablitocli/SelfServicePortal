@@ -22,16 +22,12 @@
       "Admin"
     ],
     "teams": [
-      "Infrastructure"
+      "@datacenter"
     ]
   },
   "approval": {
     "required": false
   },
-  "sites": [
-    "DC1",
-    "DC2"
-  ],
   "execution": {
     "handler": "Get-VsphereHealthReport.ps1",
     "requiresVCenter": true,

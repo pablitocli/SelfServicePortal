@@ -24,16 +24,12 @@
       "Admin"
     ],
     "teams": [
-      "Infrastructure"
+      "@datacenter"
     ]
   },
   "approval": {
     "required": false
   },
-  "sites": [
-    "DC1",
-    "DC2"
-  ],
   "execution": {
     "handler": "Get-VsphereHardeningReport.ps1",
     "requiresVCenter": true,

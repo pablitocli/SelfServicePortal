@@ -22,16 +22,12 @@
       "Admin"
     ],
     "teams": [
-      "Infrastructure"
+      "@datacenter"
     ]
   },
   "approval": {
     "required": false
   },
-  "sites": [
-    "DC1",
-    "DC2"
-  ],
   "execution": {
     "handler": "Set-PortalBackupPolicy.ps1",
     "requiresVCenter": true,

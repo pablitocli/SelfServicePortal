@@ -23,7 +23,7 @@
       "Admin"
     ],
     "teams": [
-      "Infrastructure"
+      "@datacenter"
     ]
   },
   "approval": {
@@ -33,20 +33,13 @@
       "Admin"
     ]
   },
-  "sites": [
-    "DC1",
-    "DC2"
-  ],
   "execution": {
     "handler": "Install-GuestSqlServer.ps1",
     "requiresVCenter": true,
     "siteInput": "Site",
     "timeoutMinutes": 120,
     "fixedParameters": {
-      "InstallerPath": {
-        "DC1": "TBD-\\\\fileserver\\software\\SQL2022",
-        "DC2": "TBD-\\\\fileserver\\software\\SQL2022"
-      },
+      "InstallerPath": "@site:sqlServerMediaPath",
       "ProductKey": ""
     }
   },

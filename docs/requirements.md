@@ -13,6 +13,7 @@ This document lists everything the Self-Service Portal needs before it is instal
 7. [Time synchronisation](#7-time-synchronisation)
 8. [Service accounts and permissions](#8-service-accounts-and-permissions)
 9. [Pre-deployment checklist](#9-pre-deployment-checklist)
+10. [Deployment-specific configuration (before first use)](#10-deployment-specific-configuration-before-first-use)
 
 Related documents: [architecture.md](architecture.md), [configuration.md](configuration.md), [installation-linux.md](installation-linux.md), [ova.md](ova.md), [installation-windows.md](installation-windows.md), [identity.md](identity.md), [security.md](security.md), [vault.md](vault.md), [operations.md](operations.md).
 
@@ -348,7 +349,7 @@ Linux VMs are created with SSH key authentication only (`sshPublicKey` is requir
 
 **vSphere content**
 
-- [ ] Windows Server 2025 and AlmaLinux templates per site, and the guest customization specifications whose names replace the `TBD-...` values in `catalog/items/vm-windows-2025.json` and `vm-almalinux.json`.
+- [ ] Windows Server 2025 and AlmaLinux templates per site, the guest customization specifications and the SQL Server media share; their names go into each site's **catalog values** (section 10), not into the catalog items.
 - [ ] App and DB clusters per site (`workloadClusters`), VM folders and port groups that requesters may use.
 
 **Security and operations**
@@ -356,3 +357,28 @@ Linux VMs are created with SSH key authentication only (`sshPublicKey` is requir
 - [ ] Vault key provider decided and the key backup location agreed ([vault.md](vault.md), [operations.md](operations.md#1-backup-and-restore)).
 - [ ] Break-glass procedure: a local account flagged `breakGlass`, stored in your password safe.
 - [ ] Backup, log retention and monitoring in place ([operations.md](operations.md)).
+
+## 10. Deployment-specific configuration (before first use)
+
+The repository contains **no organisation-specific data**: no site codes, vCenter names, clusters, templates, domains, groups or team names of any real environment. Everything that depends on your environment is a configuration segment, created at first start from `config/*.default.json` with neutral examples (`DC1`, `DC2`, `corp.example.com`) and `TBD-` placeholders. Complete the segments below before you offer the portal to users. Items whose values are still `TBD-` (or empty) are refused by the job runner with a message that names the missing value.
+
+| # | Segment (configuration key) | Where to set it | What to provide | Needed by |
+|---|---|---|---|---|
+| 1 | `portal` (address, port, certificate) | `tools/Set-PortalEndpoint.ps1`, OVA properties | Listening address and port, certificate file or thumbprint | Everything |
+| 2 | `branding` | Admin > Customization | Product name, organisation, logo, colours, login message, footer | UI |
+| 3 | `auth.providers[]`, `auth.defaultProvider` | Admin > Identity | Directory type, domains (UPN suffix and NetBIOS), hosts, port and security mode, base DN, bind mode / bind credential (vault), CA certificate | Sign-in with AD / LDAP |
+| 4 | `auth.roleMapping` | Admin > Customization > Role mapping | Directory groups for Requester, Approver, Admin, CatalogAdmin, SecurityAdmin, VaultAdmin | Authorisation |
+| 5 | `teams[]` | Admin > Customization > Teams | Your team ids, names and directory groups (defaults: `Infrastructure`, `Cloud`) | Item visibility, approvals |
+| 6 | `catalog.teamRoles` | Admin > Customization > Teams | Which of your teams owns the shipped datacenter items (`@datacenter`) and cloud items (`@cloud`) | All shipped items |
+| 7 | `sites[]` | Admin > vCenter connections | Site code and name, vCenter FQDN, certificate policy, App / DB workload clusters, VM folder, DNS domain and servers, port-group filter | All vSphere items |
+| 8 | `sites[].catalogValues` (keys declared in `catalog.siteValues`) | Admin > vCenter connections > Catalog values | Per site: `windowsTemplate`, `windowsCustomizationSpec`, `linuxTemplate`, `linuxCustomizationSpec`, `sqlServerMediaPath` | Windows / AlmaLinux VM, SQL Server, three-tier blueprint |
+| 9 | Vault entries | Admin > Vault, Admin > vCenter connections | `vcenter-<site>` service accounts; guest credentials tagged `guest-windows`, `guest-linux`, `ad-join`, `sql-service`; LDAP bind; cloud keys | Jobs, guest installs, identity |
+| 10 | `clouds.aws`, `clouds.azure` | Admin > Cloud connections | Account / subscription, region, network, images, tags; leave disabled until defined | Cloud items |
+| 11 | `operations` | `config/portal.config.json` | Quarantine folder and days, rename prefix, snapshot and test-clone policies, report thresholds, power-schedule tag | Operational items |
+| 12 | Data files: `software.json`, `version-baseline.json`, `hardening-baseline.json`, `backup.json` | Admin > Data files | Agent installers and checks (set to *Approved*), approved builds and advisories, hardening checks of your security standard, backup policies / tag category | Agent baseline, compliance reports, backup policy |
+| 13 | `security` | Admin > Security | Session timeouts, password policy, MFA, admin networks, trusted proxies | Security |
+| 14 | `vmNotes` | Admin > Customization > VM notes | Fields written into the VM notes of new builds (owner, cost centre, ticket...) | Build items |
+
+**Adding your own per-site value.** Declare it once in `catalog.siteValues` (`key`, `label`, `help`, `usedBy`, `default`), reference it from an item as `"@site:<key>"` in `execution.fixedParameters`, and fill it per site in Admin > vCenter connections. The catalog validator rejects references to undeclared keys.
+
+**Private editions.** Keep organisation-specific catalog items, configuration defaults and branding outside this repository (for example a private overlay applied at build time), so the public repository stays neutral.

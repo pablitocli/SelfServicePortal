@@ -23,16 +23,12 @@
       "Admin"
     ],
     "teams": [
-      "Infrastructure"
+      "@datacenter"
     ]
   },
   "approval": {
     "required": false
   },
-  "sites": [
-    "DC1",
-    "DC2"
-  ],
   "execution": {
     "handler": "Install-GuestAgentBaseline.ps1",
     "requiresVCenter": true,

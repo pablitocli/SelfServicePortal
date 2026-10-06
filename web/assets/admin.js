@@ -150,7 +150,7 @@
 
       <section class="card fieldset"><h2 class="section-title">Access, approval and sites</h2><div class="fields">
         <div class="field"><label>Visible to roles</label><div class="checks">${roleBoxes('accRoles', d.access.roles || [])}</div></div>
-        <div class="field"><label>Visible to teams</label><div class="checks">${teamBoxes('accTeams', d.access.teams || [])}</div><div class="help">None selected = every team. Admins always see every item.</div></div>
+        <div class="field"><label>Visible to teams</label><div class="checks">${teamBoxes('accTeams', d.access.teams || [])}${[...new Set(['@datacenter', '@cloud', ...(d.access.teams || []).filter((t) => String(t).startsWith('@'))])].map((t) => `<label class="toggle" title="Team role, mapped to a team id by configuration catalog.teamRoles"><input type="checkbox" name="accTeams" value="${esc(t)}" ${(d.access.teams || []).includes(t) ? 'checked' : ''}> role ${esc(t)}</label>`).join('')}</div><div class="help">None selected = every team. Admins always see every item. A team role (@datacenter, @cloud) follows the mapping in configuration catalog.teamRoles, so the item works in any deployment.</div></div>
         <div class="field"><label>Build options</label><label class="toggle"><input type="checkbox" id="edVmNotes" ${d.vmNotes ? 'checked' : ''}> Add the "VM notes" section (Admin > Customization) to this form</label><div class="help">The script receives it as -VmNotes.</div></div>
         <div class="field"><label>Approval</label><label class="toggle"><input type="checkbox" id="apprReq" ${d.approval.required ? 'checked' : ''}> Requires approval before execution</label>
           <div class="checks" style="margin-top:6px">${roleBoxes('apprRoles', d.approval.approverRoles || ['Approver', 'Admin'])}</div><div class="help">Roles allowed to approve.</div></div>
@@ -436,8 +436,9 @@
   async function vcenters(body) {
     const [s, inv] = await Promise.all([P().api('/api/admin/sites'), P().api('/api/admin/inventory').catch(() => ({ sites: [] }))]);
     const invBy = Object.fromEntries((inv.sites || []).map((x) => [x.site, x]));
+    siteValueDefs = s.siteValues || [];
     body.innerHTML = `
-      <div class="alert alert-info">Credentials are stored encrypted (Windows DPAPI) for the account that runs the portal service and are used by every automation job. Leave the password empty to keep the current one.</div>
+      <div class="alert alert-info">Credentials are stored encrypted in the portal vault and are used by every automation job. Leave the password empty to keep the current one. <b>Catalog values</b> are the per-site names the shipped items need (templates, customization specs, media paths); values starting with TBD- block the related items until they are set.</div>
       <div class="site-cards wide-cards">${s.sites.map((x) => siteCard(x, invBy[x.code])).join('')}
         <div class="card card-pad"><h3>Add datacenter / vCenter</h3>
           <div class="fields" style="margin-top:10px">${fld('Site code', '<input type="text" id="newCode" placeholder="DC3" maxlength="8">')}
@@ -457,6 +458,20 @@
         P().toast('Site added (disabled until you enable it).'); vcenters(body);
       } catch (e) { P().toast(e.message, 6000); }
     });
+  }
+
+  let siteValueDefs = [];
+  function catalogValueFields(x, id) {
+    if (!siteValueDefs.length) return '';
+    const cv = x.catalogValues || {};
+    return `<div class="field wide"><label>Catalog values</label><div class="muted" style="font-size:12.5px">Used by catalog items as @site:&lt;key&gt;.</div></div>` +
+      siteValueDefs.map((d) => {
+        const v = cv[d.key] ?? '';
+        const pending = !v || String(v).startsWith('TBD-');
+        return fld(`${esc(d.label || d.key)} <span class="muted mono" style="font-size:11px">${esc(d.key)}</span>`,
+          `<input type="text" id="${id('cv_' + d.key)}" data-cv="${esc(d.key)}" value="${esc(v)}" maxlength="512">`,
+          `${esc(d.help || '')}${(d.usedBy || []).length ? ` Used by: ${esc(d.usedBy.join(', '))}.` : ''}${pending ? ' <span style="color:var(--err)">Not configured.</span>' : ''}`);
+      }).join('');
   }
 
   function siteCard(x, inv) {
@@ -481,6 +496,7 @@
         ${fld('DNS domain', `<input type="text" id="${id('dnsd')}" value="${esc(x.dnsDomain)}">`)}
         ${fld('DNS servers (comma)', `<input type="text" id="${id('dns')}" value="${esc((x.dnsServers || []).join(', '))}">`)}
         <div class="field wide"><label class="toggle"><input type="checkbox" id="${id('en')}" ${x.enabled ? 'checked' : ''}> Site enabled (offered in request forms)</label></div>
+        ${catalogValueFields(x, id)}
       </div>${clusterList}
       <div class="actions" style="margin-top:14px">
         <button class="btn btn-primary btn-sm" data-save="${esc(x.code)}">Save</button>
@@ -507,6 +523,8 @@
       workloadClusters: { App: val(id('app')), DB: val(id('db')) }, vmFolder: val(id('folder')), dnsDomain: val(id('dnsd')),
       dnsServers: val(id('dns')).split(',').map((x) => x.trim()).filter(Boolean)
     };
+    const cvInputs = [...document.querySelectorAll(`[id^="s_${code}_cv_"]`)];
+    if (cvInputs.length) payload.catalogValues = Object.fromEntries(cvInputs.map((e) => [e.dataset.cv, e.value.trim()]));
     const user = val(id('user')), pw = document.getElementById(id('pw')).value;
     if (pw) {
       if (!user) { P().toast('Enter the service account (e.g. svc-portal@vsphere.local).'); return false; }
@@ -576,6 +594,9 @@
           <input type="text" data-tk="name" value="${esc(t.name)}">
           <input type="text" data-tk="adGroups" value="${esc((t.adGroups || []).join(', '))}">
           <button type="button" class="btn btn-sm btn-danger" data-tdel="${i}" ${(s.teamUsage || {})[t.id] ? `disabled title="Used by: ${esc((s.teamUsage[t.id] || []).join(', '))}"` : ''}>&times;</button></div>`).join('')}</div>
+        <div class="fields" style="margin-top:12px">${Object.keys(s.teamRoles || { datacenter: '', cloud: '' }).map((r) => fld(`Team for role @${esc(r)}`,
+          `<select data-trole="${esc(r)}">${(s.teams || []).map((t) => `<option value="${esc(t.id)}" ${(s.teamRoles || {})[r] === t.id ? 'selected' : ''}>${esc(t.id)} - ${esc(t.name)}</option>`).join('')}</select>`,
+          r === 'cloud' ? 'Shipped cloud items (AWS / Azure) reference @cloud.' : 'Shipped datacenter items (vSphere) reference @datacenter.')).join('')}</div>
       </section>
 
 
@@ -615,6 +636,7 @@
       out.branding = { productName: val('bProduct'), organization: val('bOrg'), tagline: val('bTagline'), supportContact: val('bSupport'),
                        primaryColor: val('bPrimary'), accentColor: val('bAccent'), loginMessage: val('bLogin'), footerText: val('bFooter') };
       out.teams = rows('#tList .team-row', 'data-tk').map((t) => ({ id: t.id, name: t.name, adGroups: list(t.adGroups) }));
+      const tr = [...document.querySelectorAll('[data-trole]')]; if (tr.length) out.teamRoles = Object.fromEntries(tr.map((e) => [e.dataset.trole, e.value]));
       out.vmNotes = { enabled: val('nEnabled'), title: val('nTitle'),
                       fields: rows('#nList .note-row', 'data-nk').map((f) => { const o = { key: f.key, label: f.label, type: f.type, required: !!f.required };
                         if (f.type === 'select') o.options = list(f.options); else if (f.help) o.help = f.help;

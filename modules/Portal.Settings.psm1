@@ -55,6 +55,7 @@ function Get-PortalSettingsView {
     return [ordered]@{
         branding    = Get-PortalBranding
         teams       = @(Get-SV $cfg 'teams' @())
+        teamRoles   = Get-SV (Get-SV $cfg 'catalog' @{}) 'teamRoles' ([ordered]@{ datacenter = ''; cloud = '' })
         roleMapping = $(
             $rm = Get-SV $auth 'roleMapping' ([ordered]@{}); $o = [ordered]@{}
             foreach ($r in Get-PortalRoleList) { $o[$r] = @(Get-SV $rm $r @()) }; $o)
@@ -73,7 +74,9 @@ function Get-PortalTeamUsage {
     $usage = [ordered]@{}
     foreach ($f in Get-ChildItem -LiteralPath (Get-PortalPath -Name CatalogItems) -Filter '*.json' -File) {
         try { $i = Read-PortalJson -Path $f.FullName } catch { continue }
-        foreach ($t in @(Get-SV (Get-SV $i 'access' @{}) 'teams' @())) {
+        foreach ($t0 in @(Get-SV (Get-SV $i 'access' @{}) 'teams' @())) {
+            $t = Resolve-PortalTeamToken -Team ([string]$t0)      # team roles (@datacenter / @cloud) count for the mapped team
+            if (-not $t) { continue }
             if (-not $usage.Contains($t)) { $usage[$t] = @() }
             $usage[$t] = @($usage[$t]) + $i.id
         }
@@ -108,6 +111,13 @@ function Set-PortalSettings {
             if (-not $ids.ContainsKey($used)) { throw "Team '$used' is still used by catalog items: $(@($usage[$used]) -join ', '). Update those items first." }
         }
     }
+    if ($Settings.Contains('teamRoles')) {
+        $teamIds = if ($Settings.Contains('teams')) { @($Settings.teams | ForEach-Object { [string]$_.id }) } else { @(@(Get-SV (Get-PortalConfig) 'teams' @()) | ForEach-Object { [string]$_.id }) }
+        foreach ($r in $Settings.teamRoles.Keys) {
+            if ([string]$r -notmatch '^[a-z][a-z0-9-]{1,31}$') { throw "Team role '$r' is not valid." }
+            if ($teamIds -notcontains [string]$Settings.teamRoles[$r]) { throw "Team role @$r must map to an existing team." }
+        }
+    }
     if ($Settings.Contains('vmNotes')) {
         $keys = @{}
         foreach ($f in @($Settings.vmNotes.fields)) {
@@ -131,6 +141,11 @@ function Set-PortalSettings {
         if ($Settings.Contains('teams')) {
             $cfg['teams'] = @($Settings.teams | ForEach-Object {
                 [ordered]@{ id = [string]$_.id; name = ([string]$_.name).Trim(); adGroups = @(@($_.adGroups) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }) } })
+        }
+        if ($Settings.Contains('teamRoles')) {
+            if (-not $cfg.Contains('catalog')) { $cfg['catalog'] = [ordered]@{ teamRoles = [ordered]@{}; siteValues = @() } }
+            $roles = [ordered]@{}; foreach ($r in $Settings.teamRoles.Keys) { $roles[[string]$r] = [string]$Settings.teamRoles[$r] }
+            $cfg.catalog['teamRoles'] = $roles
         }
         if ($Settings.Contains('roleMapping')) {
             $rm = [ordered]@{}
@@ -241,7 +256,8 @@ function Initialize-PortalTeamScopes {
     <#
     .SYNOPSIS Upgrade step (once): scopes pre-existing catalog items and local users to teams.
     .DESCRIPTION
-        * Items without access.teams: cloud handlers (New-AwsEc2Instance / New-AzureVm) -> Cloud, everything else -> Infrastructure.
+        * Items without access.teams: cloud handlers (New-AwsEc2Instance / New-AzureVm) -> team role @cloud, everything else -> @datacenter
+          (mapped to team ids by configuration catalog.teamRoles).
           Build items (New-VsphereVM / New-AwsEc2Instance / New-AzureVm) also get the VM notes section.
         * Local users without a teams list get every configured team (same visibility they had before teams existed).
         Recorded in _migrations as 'team-scopes-2026-10'.
@@ -260,8 +276,8 @@ function Initialize-PortalTeamScopes {
         $dirty = $false
         if (-not $i.Contains('access')) { $i['access'] = [ordered]@{} }
         if (-not $i.access.Contains('teams')) {
-            $t = if ($cloudHandlers -contains $h) { 'Cloud' } else { 'Infrastructure' }
-            $i.access['teams'] = @(if ($known -contains $t) { $t })
+            $t = if ($cloudHandlers -contains $h) { '@cloud' } else { '@datacenter' }
+            $i.access['teams'] = @(if (Resolve-PortalTeamToken -Team $t) { $t })
             $dirty = $true
         }
         if ($buildHandlers -contains $h -and -not $i.Contains('vmNotes')) { $i['vmNotes'] = $true; $dirty = $true }

@@ -117,7 +117,12 @@ Check 'Datastores follow Workload=App -> APP cluster (+minFreeGB)' ((@($ds).valu
 $dsDb = Get-PortalLookupOptions -Item $win -InputName 'Datastore' -Values @{ Site = 'DC1'; Workload = 'DB' }
 Check 'Datastores follow Workload=DB -> DB cluster' ((@($dsDb).value -join ',') -eq 'DC1-DB-DS01')
 Check 'Template is not a requester input' (@($win.inputs.name) -notcontains 'Template' -and @($win.inputs.name) -notcontains 'Cluster')
-Check 'Template resolved per site from fixedParameters' ((Resolve-PortalSiteValue -Value $win.execution.fixedParameters.Template -Site 'DC2') -like '*DC2*')
+Check 'Shipped items reference per-site values and team roles, not deployment names' ($win.execution.fixedParameters.Template -eq '@site:windowsTemplate' -and -not (Read-PortalJson -Path (Join-Path $temp 'catalog/items/vm-windows-2025.json')).Contains('sites'))
+Set-PortalSiteSettings -Code 'DC2' -Settings @{ catalogValues = @{ windowsTemplate = 'TPL-WIN2025-B' } } -Actor 'test'
+Check 'Template resolved per site from sites[].catalogValues' ((Resolve-PortalSiteValue -Value $win.execution.fixedParameters.Template -Site 'DC2') -eq 'TPL-WIN2025-B')
+$badCv = try { Set-PortalSiteSettings -Code 'DC2' -Settings @{ catalogValues = @{ notDeclared = 'x' } } -Actor 'test'; $false } catch { $_.Exception.Message -match 'catalog.siteValues' }
+Check 'Undeclared catalog value rejected' $badCv
+Check 'Team roles resolve to configured team ids' (@($win.access.teams) -join ',' -eq 'Infrastructure')
 Check 'Workload DB maps to DC2 DB cluster' ((Get-PortalWorkloadCluster -Site 'DC2' -Workload 'DB') -eq 'CL-DB-02')
 $pgs = Get-PortalLookupOptions -Item $win -InputName 'PortGroup' -Values @{ Site = 'DC1' }
 Check 'Port groups filtered by site portgroupFilter' ((@($pgs).value -join ',') -eq 'dvpg_prod_server_trust_504')
@@ -333,7 +338,7 @@ Write-PortalJson -Path (Join-Path $temp 'config/local-users.json') -Value $lu
 Update-PortalConfig -Mutate { param($c) $c['_migrations'] = @($c._migrations | Where-Object { $_ -ne 'team-scopes-2026-10' }) }
 Initialize-PortalTeamScopes
 $la = Read-PortalJson -Path (Join-Path $temp 'catalog/items/legacy-aws.json')
-Check 'Existing cloud item scoped to Cloud with notes' ((@($la.access.teams) -join ',') -eq 'Cloud' -and $la.vmNotes -eq $true)
+Check 'Existing cloud item scoped to the cloud team role with notes' ((@($la.access.teams) -join ',') -eq '@cloud' -and $la.vmNotes -eq $true)
 $lu2 = Read-PortalJson -Path (Join-Path $temp 'config/local-users.json')
 Check 'Existing local users keep full visibility' (@($lu2.users | Where-Object { -not $_.Contains('teams') -or @($_.teams).Count -lt 2 }).Count -eq 0)
 Initialize-PortalTeamScopes
@@ -635,6 +640,16 @@ $adp = @($up2.auth.providers)[0]
 Check 'Legacy AD login becomes an LDAP provider' ($adp.id -eq 'ad' -and $adp.baseDn -eq 'DC=corp,DC=example,DC=com' -and $adp.usernamePrefix -eq 'CORP' -and $adp.security -eq $(if ($IsWindows) { 'negotiate' } else { 'ldaps' }))
 Check 'Session duration carried into security.session' ($up2.security.session.absoluteTimeoutMinutes -eq 600 -and -not $up2.portal.Contains('sessionDurationMinutes'))
 Check 'New admin roles added to role mapping' ($up2.auth.roleMapping.Contains('VaultAdmin') -and $up2.vault.keyProvider -eq 'auto')
+
+Write-Host "`nUpgrade: deployment without catalog team roles / site values" -ForegroundColor Cyan
+$oldCat = Read-PortalJson -Path $cfgPath
+$oldCat.Remove('catalog'); foreach ($s in $oldCat.sites) { $s.Remove('catalogValues') }
+$oldCat.teams = @([ordered]@{ id = 'OpsTeamA'; name = 'Ops A'; adGroups = @() }, [ordered]@{ id = 'CloudTeamB'; name = 'Cloud B'; adGroups = @() })
+Write-PortalJson -Path $cfgPath -Value $oldCat
+Initialize-PortalConfiguration | Out-Null
+$upCat = Read-PortalJson -Path $cfgPath
+Check 'Team roles mapped to the existing teams' ($upCat.catalog.teamRoles.datacenter -eq 'OpsTeamA' -and $upCat.catalog.teamRoles.cloud -eq 'CloudTeamB')
+Check 'Every site receives the declared catalog values (TBD placeholders)' (@($upCat.sites | Where-Object { $_.catalogValues.windowsTemplate -like 'TBD-*' }).Count -eq @($upCat.sites).Count)
 
 Write-Host ("`nResult: {0} passed, {1} failed  (temp root: {2})" -f $pass, $fail, $temp) -ForegroundColor ($fail ? 'Red' : 'Green')
 exit $fail

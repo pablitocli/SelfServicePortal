@@ -245,7 +245,25 @@ function Resolve-PortalSiteValue {
         if ($Site -and $Value.Contains($Site)) { return $Value[$Site] }
         if ($Value.Contains('*')) { return $Value['*'] }
     }
+    # "@site:<key>" -> sites[].catalogValues.<key> of the selected site (config segment, see catalog.siteValues).
+    if ($Value -is [string] -and $Value.StartsWith('@site:')) {
+        $key = $Value.Substring(6)
+        $siteCfg = if ($Site) { Get-PortalSite -Code $Site } else { $null }
+        if (-not $siteCfg -or -not $siteCfg.Contains('catalogValues') -or -not $siteCfg.catalogValues.Contains($key)) { return $null }
+        return $siteCfg.catalogValues[$key]
+    }
     return $Value
+}
+
+function Resolve-PortalTeamToken {
+    <# "@datacenter" / "@cloud" (config catalog.teamRoles) -> team id. Plain team ids are returned unchanged; unmapped roles -> $null. #>
+    param([string] $Team)
+    if (-not $Team -or -not $Team.StartsWith('@')) { return $Team }
+    $cfg = Get-PortalConfig
+    $roles = if ($cfg.Contains('catalog') -and $cfg.catalog.Contains('teamRoles')) { $cfg.catalog.teamRoles } else { @{} }
+    $role = $Team.Substring(1)
+    if ($roles.Contains($role) -and $roles[$role]) { return [string]$roles[$role] }
+    return $null
 }
 
 function Get-PortalWorkloadCluster {
@@ -261,4 +279,4 @@ function Get-PortalWorkloadCluster {
 
 Export-ModuleMember -Function Get-PortalRoot, Get-PortalPath, ConvertTo-PortalHashtable, Read-PortalJson, Write-PortalJson,
     Invoke-PortalLock, Get-PortalConfig, Get-PortalSite, Write-PortalLog, Write-PortalAudit, Get-PortalTimestamp, Get-PortalErrorDetail,
-    Get-PortalHandlerRoot, Resolve-PortalHandlerPath, Resolve-PortalSiteValue, Get-PortalWorkloadCluster
+    Get-PortalHandlerRoot, Resolve-PortalHandlerPath, Resolve-PortalSiteValue, Resolve-PortalTeamToken, Get-PortalWorkloadCluster

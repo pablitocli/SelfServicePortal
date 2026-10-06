@@ -54,6 +54,7 @@ function Get-PortalSiteView {
             enabled                  = [bool](Get-SiteVal $s 'enabled' $false)
             vcenter                  = Get-SiteVal $s 'vcenter' ''
             invalidCertificateAction = Get-SiteVal $s 'invalidCertificateAction' 'Ignore'
+            catalogValues            = Get-SiteVal $s 'catalogValues' ([ordered]@{})
             credential               = [ordered]@{
                 type       = $type
                 configured = $configured
@@ -96,7 +97,9 @@ function Set-PortalSiteSettings {
         if ($New -and $site) { throw "Site $Code already exists." }
         if (-not $site) {
             if (-not $vc) { throw 'vCenter is required for a new site.' }
-            $site = [ordered]@{ code = $Code; name = $Code; enabled = $false; vcenter = $vc
+            $cv = [ordered]@{}
+            if ($cfg.Contains('catalog') -and $cfg.catalog.Contains('siteValues')) { foreach ($sv in @($cfg.catalog.siteValues)) { $cv[$sv.key] = [string]$sv.default } }
+            $site = [ordered]@{ code = $Code; name = $Code; enabled = $false; vcenter = $vc; catalogValues = $cv
                                 credential = [ordered]@{ type = 'Vault'; id = "vcenter-$($Code.ToLower())" }
                                 defaults = [ordered]@{ vmFolder = 'Portal-Provisioned'; dnsDomain = ''; dnsServers = @(); minDatastoreFreePercent = 15
                                                        allowedClusters = @(); portgroupFilter = '.*'; workloadClusters = [ordered]@{ App = ''; DB = '' } } }
@@ -114,6 +117,16 @@ function Set-PortalSiteSettings {
             $d['workloadClusters'] = $wc
             # Keep the cluster allow-list aligned with the workload mapping.
             $d['allowedClusters'] = @($wc.Values | Where-Object { $_ } | Select-Object -Unique)
+        }
+        if ($Settings.Contains('catalogValues') -and $Settings.catalogValues -is [System.Collections.IDictionary]) {
+            if (-not $site.Contains('catalogValues')) { $site['catalogValues'] = [ordered]@{} }
+            $declared = @(@(if ($cfg.Contains('catalog')) { $cfg.catalog.siteValues }) | ForEach-Object { [string]$_.key })
+            foreach ($k in $Settings.catalogValues.Keys) {
+                if ($declared -notcontains $k) { throw "Unknown catalog value '$k' (declare it in configuration catalog.siteValues)." }
+                $v = [string]$Settings.catalogValues[$k]
+                if ($v.Length -gt 512 -or $v -match '[\x00-\x1f]') { throw "Catalog value '$k' is too long or contains control characters." }
+                $site.catalogValues[$k] = $v.Trim()
+            }
         }
         if ($Settings.Contains('vmFolder'))   { $d['vmFolder']   = [string]$Settings.vmFolder }
         if ($Settings.Contains('dnsDomain'))  { $d['dnsDomain']  = [string]$Settings.dnsDomain }
@@ -218,7 +231,14 @@ function Initialize-PortalConfiguration {
     $done = @($(if ($cfg.Contains('_migrations')) { $cfg._migrations } else { @() }))
     if ($done -notcontains 'cert-ignore-2026-09') { $changes.Add('vCenter certificate policy -> Ignore (accept self-signed/VMCA)') }
     if ($done -notcontains 'clouds-2026-09' -and -not $cfg.Contains('clouds')) { $changes.Add('clouds (AWS / Azure connections)') }
-    if (-not $cfg.Contains('teams'))    { $changes.Add('teams (Infrastructure / Cloud)') }
+    if (-not $cfg.Contains('teams'))    { $changes.Add('teams') }
+    if (-not $cfg.Contains('catalog'))  { $changes.Add('catalog (team roles and per-site catalog values)') }
+    elseif ($cfg.catalog.Contains('siteValues')) {
+        foreach ($s in @($cfg.sites)) {
+            $missing = @(@($cfg.catalog.siteValues) | Where-Object { -not ($s.Contains('catalogValues') -and $s.catalogValues.Contains($_.key)) })
+            if ($missing.Count) { $changes.Add("sites[$($s.code)].catalogValues ($(@($missing.key) -join ', '))") }
+        }
+    }
     if (-not $cfg.Contains('branding')) { $changes.Add('branding') }
     if (-not $cfg.Contains('vmNotes'))  { $changes.Add('vmNotes (VM notes section)') }
     if (-not $cfg.auth.Contains('providers')) { $changes.Add('auth.providers (identity: AD / OpenLDAP over LDAPS)') }
@@ -295,6 +315,22 @@ function Initialize-PortalConfiguration {
             }
         }
         if (-not $c.Contains('operations') -and $def.Contains('operations')) { $c['operations'] = $def.operations }
+        if (-not $c.Contains('catalog')) {
+            $cat = if ($def.Contains('catalog')) { $def.catalog } else { [ordered]@{ teamRoles = [ordered]@{}; siteValues = @() } }
+            # Map the team roles to the teams this installation already has (first team = datacenter, a team named *cloud* = cloud).
+            $ids = @(@($c.teams) | ForEach-Object { [string]$_.id })
+            if ($ids.Count -and -not ($ids -contains [string]$cat.teamRoles['datacenter'])) {
+                $cloudId = @($ids | Where-Object { $_ -match 'cloud' }) + @($ids | Select-Object -Skip 1) + @($ids[0]) | Select-Object -First 1
+                $dcId = @($ids | Where-Object { $_ -ne $cloudId }) + @($ids[0]) | Select-Object -First 1
+                $cat['teamRoles'] = [ordered]@{ datacenter = $dcId; cloud = $cloudId }
+            }
+            $c['catalog'] = $cat
+        }
+        # Every site gets the per-site catalog values declared in catalog.siteValues (TBD placeholders until set in Admin).
+        foreach ($s in @($c.sites)) {
+            if (-not $s.Contains('catalogValues')) { $s['catalogValues'] = [ordered]@{} }
+            foreach ($sv in @($c.catalog.siteValues)) { if (-not $s.catalogValues.Contains($sv.key)) { $s.catalogValues[$sv.key] = [string]$sv.default } }
+        }
         if (-not $c.Contains('vault')) { $c['vault'] = if ($def.Contains('vault')) { $def.vault } else { [ordered]@{ keyProvider = 'auto'; maxVersions = 5 } } }
         if (-not $mig.Contains('identity-2026-10')) { $mig.Add('identity-2026-10') }
         if (-not $mig.Contains('clouds-2026-09')) { $mig.Add('clouds-2026-09') }

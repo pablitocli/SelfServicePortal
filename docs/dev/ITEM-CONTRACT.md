@@ -18,9 +18,9 @@ Validate with `pwsh -File tools/Test-CatalogItem.ps1 -Path catalog/items/<id>.js
 - `id` lowercase with hyphens; `version` "1.0.0"; `enabled` true; `owner` "Infrastructure Operations" (Infrastructure) or "Cloud Operations" (Cloud).
 - `category`: one of `Datacenter (vSphere)`, `Datacenter operations`, `Network`, `Storage`, `Software installation`, `Reports`, `Backup`, `Cloud Ops`, `Blueprints`.
 - `icon`: one of vm, windows, linux, snapshot, network, storage, backup, security, database, cloud, generic.
-- `access`: `{ "roles": [...], "teams": ["Infrastructure"] }` (Cloud for cloud items). Roles: Requester, Approver, Admin.
+- `access`: `{ "roles": [...], "teams": ["@datacenter"] }` (`@cloud` for cloud items). Team **roles** are mapped to the deployment's team ids by configuration `catalog.teamRoles`; never put an organisation's team id in a shipped item. Roles: Requester, Approver, Admin.
 - `approval`: `{ "required": true, "approverRoles": ["Approver", "Admin"] }` or `{ "required": false }`.
-- `sites`: `["DC1", "DC2"]` for vSphere items. Per-site values in `execution.fixedParameters` are maps `{ "DC1": "...", "DC2": "..." }`; placeholders start with `TBD-`.
+- No `sites` list in shipped items (every enabled site is offered). No site codes, host names, template names or paths in shipped items: a per-site value is written as `"@site:<key>"` in `execution.fixedParameters`, declared in configuration `catalog.siteValues` (key, label, help, usedBy, default `TBD-...`) and stored per site in `sites[].catalogValues`. The runner refuses to run while a value is missing or still `TBD-`.
 - `execution`: `handler` (file name only), `requiresVCenter` (true for vSphere), `siteInput` "Site", `timeoutMinutes`, `fixedParameters`.
   Cloud items: `"requiresVCenter": false, "cloud": "aws"|"azure"` (see `catalog/items/cloud-aws-almalinux.json`).
 - Sensitive items: `"security": { "requireReauth": true }` (re-confirm password on submit and approve). An input can carry `"requireReauth": true` (its lookup requires re-auth).

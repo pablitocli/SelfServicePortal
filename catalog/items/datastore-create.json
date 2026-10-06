@@ -24,7 +24,7 @@
       "Admin"
     ],
     "teams": [
-      "Infrastructure"
+      "@datacenter"
     ]
   },
   "approval": {
@@ -37,10 +37,6 @@
   "security": {
     "requireReauth": true
   },
-  "sites": [
-    "DC1",
-    "DC2"
-  ],
   "execution": {
     "handler": "New-VsphereDatastore.ps1",
     "requiresVCenter": true,

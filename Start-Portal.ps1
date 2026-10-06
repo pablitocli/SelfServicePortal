@@ -553,11 +553,15 @@ Start-PodeServer -Threads 8 -RootPath $root {
 
     #region API: administration - vCenter connections ------------------------------------------------------
     Add-PodeRoute -Method Get -Path '/api/admin/sites' -Authentication $authName -ScriptBlock {
-        $r = Invoke-PortalApi -WebEvent $WebEvent -Permission 'connections.manage' -Action { param($u) [ordered]@{ sites = @(Get-PortalSiteView) } }
+        $r = Invoke-PortalApi -WebEvent $WebEvent -Permission 'connections.manage' -Action {
+            param($u)
+            $cat = (Get-PortalConfig)['catalog']
+            [ordered]@{ sites = @(Get-PortalSiteView); siteValues = @(if ($cat -and $cat.Contains('siteValues')) { $cat.siteValues }) }
+        }
         Write-PodeJsonResponse -Value $r.Body -StatusCode $r.Status -Depth 20
     }
 
-    # Body: { code?, new?, name, vcenter, enabled, invalidCertificateAction, workloadClusters:{App,DB}, vmFolder, dnsDomain, dnsServers[], username?, password? }
+    # Body: { code?, new?, name, vcenter, enabled, invalidCertificateAction, workloadClusters:{App,DB}, vmFolder, dnsDomain, dnsServers[], catalogValues:{key:value}, username?, password? }
     Add-PodeRoute -Method Post -Path '/api/admin/sites' -Authentication $authName -ScriptBlock {
         $body = ConvertTo-PortalHashtable $WebEvent.Data
         if (-not $body) { $body = @{} }

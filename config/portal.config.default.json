@@ -135,6 +135,63 @@
       ]
     }
   ],
+  "catalog": {
+    "_comment": "Deployment mapping for the shipped catalog items. teamRoles: items reference \"@datacenter\" / \"@cloud\" in access.teams; map each role to one of your team ids. siteValues: per-site values that items reference as \"@site:<key>\" in execution.fixedParameters; each site stores them in sites[].catalogValues (Admin > vCenter connections).",
+    "teamRoles": {
+      "datacenter": "Infrastructure",
+      "cloud": "Cloud"
+    },
+    "siteValues": [
+      {
+        "key": "windowsTemplate",
+        "label": "Windows Server 2025 template",
+        "help": "vSphere template cloned by the Windows build items.",
+        "usedBy": [
+          "vm-windows-2025",
+          "blueprint-three-tier"
+        ],
+        "default": "TBD-TPL-WIN2025"
+      },
+      {
+        "key": "windowsCustomizationSpec",
+        "label": "Windows customization specification",
+        "help": "Guest customization spec (hostname, network) for Windows builds.",
+        "usedBy": [
+          "vm-windows-2025",
+          "blueprint-three-tier"
+        ],
+        "default": "TBD-WIN2025-BASE"
+      },
+      {
+        "key": "linuxTemplate",
+        "label": "AlmaLinux template",
+        "help": "vSphere template cloned by the AlmaLinux build item.",
+        "usedBy": [
+          "vm-almalinux"
+        ],
+        "default": "TBD-TPL-ALMALINUX"
+      },
+      {
+        "key": "linuxCustomizationSpec",
+        "label": "Linux customization specification",
+        "help": "Guest customization spec for Linux builds.",
+        "usedBy": [
+          "vm-almalinux"
+        ],
+        "default": "TBD-ALMALINUX-BASE"
+      },
+      {
+        "key": "sqlServerMediaPath",
+        "label": "SQL Server 2022 media path",
+        "help": "UNC path with setup.exe, reachable from the Windows guests.",
+        "usedBy": [
+          "sql-server-2022",
+          "blueprint-three-tier"
+        ],
+        "default": "TBD-\\\\fileserver\\software\\SQL2022"
+      }
+    ]
+  },
   "vmNotes": {
     "enabled": true,
     "title": "VM notes",
@@ -239,6 +296,13 @@
           "App": "CL-APP-01",
           "DB": "CL-DB-01"
         }
+      },
+      "catalogValues": {
+        "windowsTemplate": "TBD-TPL-WIN2025",
+        "windowsCustomizationSpec": "TBD-WIN2025-BASE",
+        "linuxTemplate": "TBD-TPL-ALMALINUX",
+        "linuxCustomizationSpec": "TBD-ALMALINUX-BASE",
+        "sqlServerMediaPath": "TBD-\\\\fileserver\\software\\SQL2022"
       }
     },
     {
@@ -265,6 +329,13 @@
           "App": "CL-APP-02",
           "DB": "CL-DB-02"
         }
+      },
+      "catalogValues": {
+        "windowsTemplate": "TBD-TPL-WIN2025",
+        "windowsCustomizationSpec": "TBD-WIN2025-BASE",
+        "linuxTemplate": "TBD-TPL-ALMALINUX",
+        "linuxCustomizationSpec": "TBD-ALMALINUX-BASE",
+        "sqlServerMediaPath": "TBD-\\\\fileserver\\software\\SQL2022"
       }
     }
   ],

@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-06
+
+### Changed
+- **No deployment-specific data in the shipped catalog.** Items reference team **roles** (`@datacenter`, `@cloud`) instead of team ids, have no `sites` list, and read per-site names (templates, customization specs, SQL media) as `@site:<key>` from the new configuration segment `sites[].catalogValues`, declared in `catalog.siteValues`.
+- New configuration section `catalog` (`teamRoles`, `siteValues`). Team roles are mapped in Admin > Customization > Teams; catalog values are edited per site in Admin > vCenter connections. Upgrades map the roles to the existing teams and add the values with `TBD-` placeholders.
+- Default team ids are now `Infrastructure` and `Cloud` (groups `SSP-Team-Infrastructure`, `SSP-Team-Cloud`).
+- The job runner refuses to start a job while a fixed parameter is empty or still `TBD-`, naming the missing value.
+- Catalog validation rejects unmapped team roles and undeclared `@site:` keys.
+
+### Documentation
+- [docs/requirements.md section 10](docs/requirements.md#10-deployment-specific-configuration-before-first-use): every configuration segment to complete before first use. [configuration.md 3.16](docs/configuration.md#316-catalog) documents the `catalog` section.
+
 ## [1.1.0] - 2026-10-05
 
 ### Added
@@ -111,7 +123,8 @@ First public release.
 - Offline smoke test suite (`tests/Invoke-SmokeTest.ps1`).
 - Technical documentation in `docs/`.
 
-[Unreleased]: https://github.com/OWNER/SelfServicePortal/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/OWNER/SelfServicePortal/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/OWNER/SelfServicePortal/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.0...v1.0.1

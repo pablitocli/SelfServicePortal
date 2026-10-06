@@ -39,6 +39,7 @@ Editing rules:
 | `security` | object | Admin > Security | [3.6](#36-security) |
 | `vault` | object | file | [3.7](#37-vault) |
 | `teams` | array | Admin > Customization > Teams | [3.4](#34-teams) |
+| `catalog` | object | Admin > Customization > Teams (team roles), file (site value declarations) | [3.16](#316-catalog) |
 | `vmNotes` | object | Admin > Customization > VM notes | [3.5](#35-vmnotes) |
 | `jobs` | object | file | [3.8](#38-jobs) |
 | `automation` | object | file | [3.9](#39-automation) |
@@ -244,6 +245,7 @@ One entry per vCenter. Managed in Admin > vCenter connections (requires `connect
 | `defaults.dnsServers` | string[] | `[]` | DNS servers used when the request does not specify any |
 | `defaults.minDatastoreFreePercent` | number | `15` (handlers fall back to 10 when unset) | Free-space floor checked before cloning or adding a disk |
 | `defaults.portgroupFilter` | string (regex) | `.*` | Port groups offered by `portgroups` lookups |
+| `catalogValues` | object | declared keys with their `TBD-` defaults | Per-site values that catalog items read as `@site:<key>` (templates, customization specs, media paths). Only keys declared in `catalog.siteValues` are accepted. Edited in Admin > vCenter connections > Catalog values. |
 
 ### 3.12 `clouds`
 
@@ -428,3 +430,22 @@ Some items read editable JSON files in `config/` instead of the main configurati
 | `version-baseline.json` | Version compliance | `targets` (vCenter / ESXi `minBuild`, VMware Tools `minVersion`, VM hardware `minVersion`) and `advisories[]` (`id`, `product`, `fixedBuild`, optional `appliesToVersion`). 0 / empty = not set. |
 | `hardening-baseline.json` | Hardening compliance | `esxiAdvancedSettings[]`, `esxiServices[]`, `vmAdvancedSettings[]` with `operator` `eq\|ne\|le\|ge\|range\|nonEmpty`, `expected`, `defaultCompliant`. Read-only checks. |
 | `backup.json` | Backup policy, Decommission | `connector` (`vsphereTag`; other connectors are templates in `catalog/_connectors/backup/`), `tagCategory` (`Backup-Policy`), `cloudTagName`, `policies[]`. |
+
+### 3.16 `catalog`
+
+Maps the shipped catalog items to your deployment, so the items themselves contain no organisation-specific names. Added by the 1.1.1 upgrade (an existing installation keeps its teams: the first team becomes `@datacenter`, a team whose id contains *cloud* becomes `@cloud`). Live.
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `teamRoles` | object | `{ datacenter: "Infrastructure", cloud: "Cloud" }` | Team id for each team role used in `access.teams` of the items (`@datacenter`, `@cloud`). Must reference ids in `teams[]`. Edited in Admin > Customization > Teams. |
+| `siteValues[]` | array of `{ key, label, help, usedBy[], default }` | 5 keys | Declares the per-site values items may reference as `@site:<key>`. `default` (normally `TBD-...`) is written into every site that lacks the key. |
+
+Shipped keys:
+
+| Key | Used by | Example |
+|---|---|---|
+| `windowsTemplate` | `vm-windows-2025`, `blueprint-three-tier` | `TPL-WIN2025` |
+| `windowsCustomizationSpec` | `vm-windows-2025`, `blueprint-three-tier` | `WIN2025-BASE` |
+| `linuxTemplate` | `vm-almalinux` | `TPL-ALMALINUX9` |
+| `linuxCustomizationSpec` | `vm-almalinux` | `ALMALINUX-BASE` |
+| `sqlServerMediaPath` | `sql-server-2022`, `blueprint-three-tier` | `\\fileserver\software\SQL2022` |

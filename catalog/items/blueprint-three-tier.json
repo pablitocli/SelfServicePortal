@@ -24,7 +24,7 @@
       "Admin"
     ],
     "teams": [
-      "Infrastructure"
+      "@datacenter"
     ]
   },
   "approval": {
@@ -34,28 +34,15 @@
       "Admin"
     ]
   },
-  "sites": [
-    "DC1",
-    "DC2"
-  ],
   "execution": {
     "handler": "New-VsphereThreeTierApp.ps1",
     "requiresVCenter": true,
     "siteInput": "Site",
     "timeoutMinutes": 240,
     "fixedParameters": {
-      "Template": {
-        "DC1": "TBD-DC1-TPL-WIN2025",
-        "DC2": "TBD-DC2-TPL-WIN2025"
-      },
-      "CustomizationSpec": {
-        "DC1": "TBD-WIN2025-BASE",
-        "DC2": "TBD-WIN2025-BASE"
-      },
-      "SqlInstallerPath": {
-        "DC1": "TBD-\\\\fileserver-dc1\\media\\SQL2022",
-        "DC2": "TBD-\\\\fileserver-dc2\\media\\SQL2022"
-      },
+      "Template": "@site:windowsTemplate",
+      "CustomizationSpec": "@site:windowsCustomizationSpec",
+      "SqlInstallerPath": "@site:sqlServerMediaPath",
       "SqlDiskSizesGB": "100,50,100,50"
     }
   },

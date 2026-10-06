@@ -23,7 +23,7 @@
       "Admin"
     ],
     "teams": [
-      "Cloud"
+      "@cloud"
     ]
   },
   "approval": {

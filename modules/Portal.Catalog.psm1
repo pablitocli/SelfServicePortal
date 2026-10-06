@@ -101,7 +101,9 @@ function Test-PortalCatalogDefinition {
     }
     $knownTeams = @(Get-PortalTeamList | ForEach-Object { $_.id })
     foreach ($t in @(Get-Prop (Get-Prop $Item 'access') 'teams' @())) {
-        if ($knownTeams -notcontains $t) { $err.Add("access.teams contains unknown team '$t' (Admin > Customization > Teams).") }
+        $resolved = Resolve-PortalTeamToken -Team ([string]$t)
+        if (([string]$t).StartsWith('@') -and -not $resolved) { $err.Add("access.teams uses team role '$t', which is not mapped in configuration catalog.teamRoles."); continue }
+        if ($knownTeams -notcontains $resolved) { $err.Add("access.teams contains unknown team '$resolved' (Admin > Customization > Teams).") }
     }
     foreach ($r in @(Get-Prop (Get-Prop $Item 'approval') 'approverRoles' @())) {
         if ($script:ValidRoles -notcontains $r) { $err.Add("approval.approverRoles contains unknown role '$r'.") }
@@ -111,6 +113,19 @@ function Test-PortalCatalogDefinition {
     $knownSites = @(Get-PortalSite | ForEach-Object { $_.code })
     foreach ($s in @(Get-Prop $Item 'sites' @())) {
         if ($knownSites -notcontains $s) { $err.Add("sites contains '$s', which is not defined in portal.config.json.") }
+    }
+
+    # Per-site values ("@site:<key>") must be declared in configuration catalog.siteValues.
+    $cfgCat = Get-Prop (Get-PortalConfig) 'catalog' @{}
+    $declaredKeys = @(@(Get-Prop $cfgCat 'siteValues' @()) | ForEach-Object { Get-Prop $_ 'key' })
+    $fixedAll = Get-Prop (Get-Prop $Item 'execution' @{}) 'fixedParameters' @{}
+    if ($fixedAll -is [System.Collections.IDictionary]) {
+        foreach ($k in $fixedAll.Keys) {
+            $v = $fixedAll[$k]
+            if ($v -is [string] -and $v.StartsWith('@site:') -and $declaredKeys -notcontains $v.Substring(6)) {
+                $err.Add("fixedParameters.$k references '$v', which is not declared in configuration catalog.siteValues.")
+            }
+        }
     }
 
     # Handler
@@ -263,6 +278,10 @@ function Get-PortalCatalog {
                 continue
             }
             $ids[$item.id] = $file.Name
+            # Team roles ("@datacenter", "@cloud") -> team ids of this deployment (configuration catalog.teamRoles).
+            if ($item.Contains('access') -and $item.access -is [System.Collections.IDictionary] -and $item.access.Contains('teams')) {
+                $item.access['teams'] = @(@($item.access.teams) | ForEach-Object { Resolve-PortalTeamToken -Team ([string]$_) } | Where-Object { $_ } | Select-Object -Unique)
+            }
             if (Get-Prop $item 'vmNotes' $false) { $item.inputs = @($item.inputs) + @(Get-PortalVmNoteInputs) }
             $item['_file'] = $file.Name
             $item['_updated'] = $file.LastWriteTimeUtc.ToString('o')
@@ -295,7 +314,7 @@ function Test-PortalItemAccess {
     if (-not (Get-Prop $Item 'enabled' $true)) { return $false }
     $roles = @(Get-Prop (Get-Prop $Item 'access') 'roles' @('Requester', 'Approver', 'Admin'))
     if (-not (Test-PortalRole -User $User -Role $roles)) { return $false }
-    # Team scoping: Infrastructure items for Infrastructure, Cloud items for Cloud (Admins see all).
+    # Team scoping: an item is visible to the members of its teams (Admins see all).
     return (Test-PortalTeamAccess -User $User -Teams @(Get-Prop (Get-Prop $Item 'access') 'teams' @()))
 }
 

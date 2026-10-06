@@ -23,7 +23,7 @@
       "Admin"
     ],
     "teams": [
-      "Infrastructure"
+      "@datacenter"
     ]
   },
   "approval": {
@@ -33,10 +33,6 @@
       "Admin"
     ]
   },
-  "sites": [
-    "DC1",
-    "DC2"
-  ],
   "execution": {
     "handler": "New-VsphereTestClone.ps1",
     "requiresVCenter": true,

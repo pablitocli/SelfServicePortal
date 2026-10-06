@@ -22,7 +22,7 @@
       "Admin"
     ],
     "teams": [
-      "Infrastructure"
+      "@datacenter"
     ]
   },
   "approval": {
@@ -35,10 +35,6 @@
   "security": {
     "requireReauth": true
   },
-  "sites": [
-    "DC1",
-    "DC2"
-  ],
   "execution": {
     "handler": "Start-VsphereDecommission.ps1",
     "requiresVCenter": true,

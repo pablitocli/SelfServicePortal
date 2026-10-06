@@ -40,7 +40,7 @@ Build the OVA with Packer ([docs/ova.md](docs/ova.md)), deploy it from the vSphe
 ### Option 2 — Linux (AlmaLinux / RHEL / Rocky 9, Ubuntu 24.04)
 
 ```bash
-tar xzf self-service-portal-1.1.0.tar.gz && cd self-service-portal-1.1.0
+tar xzf self-service-portal-1.1.1.tar.gz && cd self-service-portal-1.1.1
 sudo ./packaging/linux/install.sh --hostname-cert portal.example.com
 ```
 
@@ -64,7 +64,7 @@ then:
 1. **Admin > Identity** — add your Active Directory or OpenLDAP directory and test it.
 2. **Admin > Customization** — branding, teams, role-mapping groups, VM notes fields.
 3. **Admin > vCenter / Cloud connections** — endpoints and service accounts (stored in the vault).
-4. **Admin > Catalog** — replace the `TBD-...` template names in the build items.
+4. **Admin > vCenter connections > Catalog values** — per site, the template, customization-spec and media names the items use (no item file needs editing).
 5. **Admin > Security** — review session, password, MFA and admin-network policies; disable local accounts except a break-glass one.
 
 ## Requirements (summary)
@@ -76,6 +76,8 @@ then:
 | Runtime | PowerShell 7.4, Pode 2.14.x | |
 | Automation modules | VMware PowerCLI (vSphere items); AWS.Tools / Az (optional, Cloud Ops) | |
 | Network | Inbound 443/tcp; outbound vCenter 443, LDAP 636/389, DNS, NTP, cloud APIs | |
+
+Everything that depends on your environment is configuration, not code: the checklist of segments to complete before first use is in [docs/requirements.md, section 10](docs/requirements.md#10-deployment-specific-configuration-before-first-use).
 
 The complete list — service-account permissions for vCenter, AWS IAM and Azure RBAC, certificates, port matrix and a
 pre-deployment checklist — is in [docs/requirements.md](docs/requirements.md).
@@ -124,7 +126,7 @@ configured. CI runs them on Linux and Windows ([.github/workflows/ci.yml](.githu
 
 ## Status
 
-Version 1.1.0. The engine, UI, identity layer (verified against OpenLDAP over LDAPS and StartTLS) and vault are
+Version 1.1.1. The engine, UI, identity layer (verified against OpenLDAP over LDAPS and StartTLS) and vault are
 covered by automated tests; integration with production vCenter, Active Directory and cloud tenants must be validated
 in your environment — start with a lab site. Planned work is in the [roadmap](docs/roadmap.md).
 

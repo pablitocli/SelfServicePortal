@@ -21,7 +21,7 @@
       "Admin"
     ],
     "teams": [
-      "Infrastructure"
+      "@datacenter"
     ]
   },
   "approval": {
@@ -31,10 +31,6 @@
       "Admin"
     ]
   },
-  "sites": [
-    "DC1",
-    "DC2"
-  ],
   "execution": {
     "handler": "Invoke-VsphereSnapshotCleanup.ps1",
     "requiresVCenter": true,
