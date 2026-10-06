@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-06
+
+### Fixed
+- Several instances on one server (for example a new release validated next to production on another port):
+  - cross-process locks are scoped to the installation folder, so instances no longer wait on each other's locks;
+  - the session cookie is named per port (`ssp_sid_<port>`, or `portal.sessionCookieName`), so signing in to one instance no longer signs you out of the other (browsers share cookies across ports);
+  - `tools/Set-PortalEndpoint.ps1` always edits its own installation, even when a portal-root environment variable points elsewhere.
+- Users are asked to sign in again once after the upgrade (new cookie name).
+
+### Documentation
+- [operations.md 2.1](docs/operations.md#21-validating-a-new-release-side-by-side): running a new release side by side on another port.
+
 ## [1.1.1] - 2026-10-06
 
 ### Changed
@@ -123,7 +135,8 @@ First public release.
 - Offline smoke test suite (`tests/Invoke-SmokeTest.ps1`).
 - Technical documentation in `docs/`.
 
-[Unreleased]: https://github.com/OWNER/SelfServicePortal/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/OWNER/SelfServicePortal/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/OWNER/SelfServicePortal/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/OWNER/SelfServicePortal/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.1...v1.0.2

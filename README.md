@@ -40,7 +40,7 @@ Build the OVA with Packer ([docs/ova.md](docs/ova.md)), deploy it from the vSphe
 ### Option 2 — Linux (AlmaLinux / RHEL / Rocky 9, Ubuntu 24.04)
 
 ```bash
-tar xzf self-service-portal-1.1.1.tar.gz && cd self-service-portal-1.1.1
+tar xzf self-service-portal-1.1.2.tar.gz && cd self-service-portal-1.1.2
 sudo ./packaging/linux/install.sh --hostname-cert portal.example.com
 ```
 
@@ -126,7 +126,7 @@ configured. CI runs them on Linux and Windows ([.github/workflows/ci.yml](.githu
 
 ## Status
 
-Version 1.1.1. The engine, UI, identity layer (verified against OpenLDAP over LDAPS and StartTLS) and vault are
+Version 1.1.2. The engine, UI, identity layer (verified against OpenLDAP over LDAPS and StartTLS) and vault are
 covered by automated tests; integration with production vCenter, Active Directory and cloud tenants must be validated
 in your environment — start with a lab site. Planned work is in the [roadmap](docs/roadmap.md).
 

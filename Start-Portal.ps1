@@ -132,7 +132,10 @@ Start-PodeServer -Threads 8 -RootPath $root {
     # Pode session = signed cookie with an absolute lifetime. Idle timeout, revocation, forced password change,
     # MFA enrolment and re-authentication are enforced per request by Portal.Auth (Test-PortalSessionGate).
     $pol = Get-PortalSecurityPolicy
-    $sessionArgs = @{ Duration = [int]$pol.session.absoluteTimeoutMinutes * 60; Extend = $false; HttpOnly = $true }
+    # Cookie name per port: browsers share cookies across ports of one host, so a second instance (e.g. a test
+    # portal on another port) must not overwrite the session cookie of the first. portal.sessionCookieName overrides it.
+    $cookieName = if ($cfg.portal.Contains('sessionCookieName') -and $cfg.portal.sessionCookieName) { [string]$cfg.portal.sessionCookieName } else { "ssp_sid_$($cfg.portal.port)" }
+    $sessionArgs = @{ Name = $cookieName; Duration = [int]$pol.session.absoluteTimeoutMinutes * 60; Extend = $false; HttpOnly = $true }
     if (-not $Http -and $cfg.portal.protocol -eq 'Https') { $sessionArgs['Secure'] = $true }
     $secret = [Environment]::GetEnvironmentVariable($cfg.portal.sessionSecretEnvVar)
     if ($secret) { $sessionArgs['Secret'] = $secret }

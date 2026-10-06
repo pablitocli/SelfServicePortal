@@ -70,6 +70,7 @@ The *Live* column states whether a change applies without restarting the portal 
 | `certificateThumbprint` | string | `TBD-CERT-THUMBPRINT` | restart | Windows: SHA-1 thumbprint of a certificate in the `My` store. Non-hex characters are stripped; anything that is not 40 hex digits counts as not configured. |
 | `certificateStoreLocation` | string | `LocalMachine` | restart | Store location for `certificateThumbprint` (`LocalMachine` or `CurrentUser`). |
 | `sessionSecretEnvVar` | string | `SSP_SESSION_SECRET` | restart | **Name** of the environment variable holding the session cookie signing secret (section 6). |
+| `sessionCookieName` | string | not set (`ssp_sid_<port>`) | restart | Session cookie name. The default includes the port so two instances on one host keep separate sessions. |
 
 With `protocol: Https` and neither a valid `certificateFile` nor a 40-digit thumbprint, the portal starts with a Pode **self-signed** certificate and logs a warning (lab only). Use `tools/Set-PortalEndpoint.ps1 [-Port <n>] [-Address <a>] [-CertificateFile <f> [-CertificateKeyFile <k>] [-CertificatePasswordEnvVar <v>] | -CertificateThumbprint <t>]` to change the endpoint; it also creates the configuration from the defaults when needed.
 

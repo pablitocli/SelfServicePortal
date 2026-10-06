@@ -9,6 +9,7 @@
 #>
 
 Set-StrictMode -Version Latest
+$script:LockScope = $null; $script:LockScopeRoot = $null   # Invoke-PortalLock: mutex names scoped per installation
 
 $script:ConfigCache = $null
 $script:ConfigStamp = [datetime]::MinValue
@@ -104,7 +105,13 @@ function Invoke-PortalLock {
         [int] $TimeoutSeconds = 30
     )
     $safe = ($Name -replace '[^A-Za-z0-9_-]', '_')
-    $mutex = [System.Threading.Mutex]::new($false, "Global\SspPortal_$safe")
+    # Scoped to this installation folder, so two portal instances on one server never block each other.
+    if (-not $script:LockScope -or $script:LockScopeRoot -ne (Get-PortalRoot)) {
+        $script:LockScopeRoot = Get-PortalRoot
+        $h = [System.Security.Cryptography.SHA256]::HashData([System.Text.Encoding]::UTF8.GetBytes(([System.IO.Path]::GetFullPath($script:LockScopeRoot)).TrimEnd('\', '/').ToLowerInvariant()))
+        $script:LockScope = [Convert]::ToHexString($h).Substring(0, 12)
+    }
+    $mutex = [System.Threading.Mutex]::new($false, "Global\SspPortal_$($script:LockScope)_$safe")
     $acquired = $false
     try {
         try { $acquired = $mutex.WaitOne([TimeSpan]::FromSeconds($TimeoutSeconds)) }

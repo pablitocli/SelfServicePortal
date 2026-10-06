@@ -22,7 +22,7 @@ param(
 $ErrorActionPreference = 'Stop'
 try {
     $root = Split-Path -Parent $PSScriptRoot
-    if (-not $env:SSP_PORTAL_ROOT) { $env:SSP_PORTAL_ROOT = $root }
+    $env:SSP_PORTAL_ROOT = $root      # always this installation (never another instance's folder)
     foreach ($m in 'Portal.Core', 'Portal.Security', 'Portal.Vault', 'Portal.Data', 'Portal.Catalog', 'Portal.Jobs', 'Portal.Sites', 'Portal.Cloud', 'Portal.Settings') {
         Import-Module (Join-Path $root "modules/$m.psm1") -Force
     }

@@ -101,6 +101,17 @@ After an upgrade:
 
 Rollback: restore the pre-upgrade backup (Linux: `tar -xzpf /var/backups/ssp/pre-upgrade-<ts>.tar.gz -C /`). Do not install an older release over a configuration that a newer release has already migrated.
 
+### 2.1 Validating a new release side by side
+
+A new release can run next to the production portal on the same server, on another port, until it has been validated. Each installation folder is independent: configuration, vault, requests, logs and locks (mutex names are scoped per folder), and the session cookie name includes the port (`ssp_sid_<port>`), so signing in to one instance does not sign you out of the other.
+
+1. Extract the **full** package into a **new** folder (never over the production folder).
+2. Optional, to reuse the production settings: copy `config/*.json` (not `*.default.json`) and `data/vault/` from the production folder. The DPAPI vault key works only for the **same Windows account on the same server**. Do **not** copy `data/requests/`: queued requests would be executed again by the second instance.
+3. Set another port: `pwsh -File tools/Set-PortalEndpoint.ps1 -Port 8444` (add `-CertificateThumbprint` / `-CertificateFile` if the certificate differs). Open the port in the host firewall.
+4. Start it with the service account: `pwsh -File Start-Portal.ps1` (or a second service / scheduled task with its **own name**).
+5. Be aware that both instances act on the same vCenters and clouds: approve only test requests on the validation instance, or keep its sites disabled until you are ready.
+6. To switch over: stop both, back up production, then move the port back (`Set-PortalEndpoint.ps1 -Port <production port>`) on the new folder and point the service at it — or upgrade the production folder in place.
+
 ## 3. Logs
 
 | File | Format | Written by | Rotation |

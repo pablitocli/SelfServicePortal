@@ -257,7 +257,7 @@ Every JSON write is atomic: the document is written to a temporary file in the s
 
 ## 7. Concurrency and locking
 
-The web server runs 8 Pode threads plus timers, and runner processes update the same files. All read-modify-write operations run inside `Invoke-PortalLock`, a **named, cross-process mutex** (`Global\SspPortal_<name>`, default wait 30 s; an abandoned mutex from a crashed process is taken over).
+The web server runs 8 Pode threads plus timers, and runner processes update the same files. All read-modify-write operations run inside `Invoke-PortalLock`, a **named, cross-process mutex** (`Global\SspPortal_<installation hash>_<name>`, scoped to the installation folder so several instances can share a server; default wait 30 s; an abandoned mutex from a crashed process is taken over).
 
 | Lock name | Protects |
 |---|---|
