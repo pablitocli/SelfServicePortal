@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-10-06
+
+### Changed
+- **License:** Apache License 2.0 with the "Commons Clause" License Condition v1.0. Free to use, modify and share (including inside organizations); selling the software, or hosting, support or consulting services whose value derives substantially from it, is not permitted. See LICENSE and NOTICE.
+
 ## [1.1.2] - 2026-10-06
 
 ### Fixed
@@ -135,7 +140,8 @@ First public release.
 - Offline smoke test suite (`tests/Invoke-SmokeTest.ps1`).
 - Technical documentation in `docs/`.
 
-[Unreleased]: https://github.com/OWNER/SelfServicePortal/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/OWNER/SelfServicePortal/compare/v1.1.3...HEAD
+[1.1.3]: https://github.com/OWNER/SelfServicePortal/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/OWNER/SelfServicePortal/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/OWNER/SelfServicePortal/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/OWNER/SelfServicePortal/compare/v1.0.2...v1.1.0

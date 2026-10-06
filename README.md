@@ -40,7 +40,7 @@ Build the OVA with Packer ([docs/ova.md](docs/ova.md)), deploy it from the vSphe
 ### Option 2 — Linux (AlmaLinux / RHEL / Rocky 9, Ubuntu 24.04)
 
 ```bash
-tar xzf self-service-portal-1.1.2.tar.gz && cd self-service-portal-1.1.2
+tar xzf self-service-portal-1.1.3.tar.gz && cd self-service-portal-1.1.3
 sudo ./packaging/linux/install.sh --hostname-cert portal.example.com
 ```
 
@@ -126,7 +126,7 @@ configured. CI runs them on Linux and Windows ([.github/workflows/ci.yml](.githu
 
 ## Status
 
-Version 1.1.2. The engine, UI, identity layer (verified against OpenLDAP over LDAPS and StartTLS) and vault are
+Version 1.1.3. The engine, UI, identity layer (verified against OpenLDAP over LDAPS and StartTLS) and vault are
 covered by automated tests; integration with production vCenter, Active Directory and cloud tenants must be validated
 in your environment — start with a lab site. Planned work is in the [roadmap](docs/roadmap.md).
 
@@ -134,7 +134,8 @@ in your environment — start with a lab site. Planned work is in the [roadmap](
 
 - Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md).
 - Report vulnerabilities privately — see [SECURITY.md](SECURITY.md).
-- Licensed under the [Apache License 2.0 with the Commons Clause](LICENSE): free to use, modify and share, but it may not be sold (no resale, paid hosting, support or consulting based on it). Provided as is, without support. Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- Licensed under the [Apache License 2.0 with the Commons Clause](LICENSE): free to use, modify and share, including inside your organization, but **it may not be sold** — no resale, paid hosting, or paid support / consulting whose value derives substantially from the portal. Because of this condition the project is *source-available* rather than OSI open source. Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- Community project, provided **as is, without support or warranty**. Use it at your own risk and validate it in a lab first.
 
 VMware, vSphere, Active Directory, Azure, AWS and AlmaLinux are trademarks of their respective owners. This project is
 not affiliated with or endorsed by them.
