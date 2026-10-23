@@ -252,16 +252,16 @@ function Get-PortalReportDir {
 }
 
 function Get-PortalRequestReport {
-    <# Reports produced by a request: name, type (html/csv), size. With -Name returns the validated file path or $null. #>
+    <# Reports produced by a request: name, type (html/csv/pdf/zip/json), size. With -Name returns the validated file path or $null. #>
     [CmdletBinding()] param([Parameter(Mandatory)] [string] $Id, [string] $Name)
     $dir = Get-PortalReportDir -Id $Id
     if ($Name) {
-        if ($Name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,150}\.(html|csv)$') { return $null }
+        if ($Name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,150}\.(html|csv|pdf|zip|json)$') { return $null }
         $p = Join-Path $dir $Name
         if (Test-Path -LiteralPath $p -PathType Leaf) { return $p } else { return $null }
     }
     if (-not (Test-Path -LiteralPath $dir)) { return }
-    foreach ($f in Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Extension -in '.html', '.csv' } | Sort-Object { $_.Extension -ne '.html' }, Name) {
+    foreach ($f in Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Extension -in '.html', '.csv', '.pdf', '.zip', '.json' } | Sort-Object { $_.Extension -ne '.html' }, Name) {
         [ordered]@{ name = $f.Name; type = $f.Extension.TrimStart('.'); sizeKB = [math]::Ceiling($f.Length / 1KB) }
     }
 }

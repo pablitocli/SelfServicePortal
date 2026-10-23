@@ -69,8 +69,36 @@ function Get-PortalSiteView {
             dnsDomain                = Get-SiteVal $defaults 'dnsDomain' ''
             dnsServers               = @(Get-SiteVal $defaults 'dnsServers' @())
             lastTest                 = Read-PortalJson -Path (Join-Path $invDir "$($s.code).conn.json")
+            aria                     = (Get-PortalSiteAriaView -Site $s)
         }
     }
+}
+
+function Get-PortalSiteAriaView {
+    <# Aria Operations connection of a site for the Admin UI (no secrets) + last test / synced report definitions. #>
+    param([Parameter(Mandatory)] $Site)
+    $a = Get-SiteVal $Site 'aria' ([ordered]@{})
+    $cred = Get-SiteVal $a 'credential' @{}
+    $ve = $null
+    $cid = [string](Get-SiteVal $cred 'id' '')
+    if ($cid) { $ve = Get-PortalVaultEntry -Id $cid }
+    [ordered]@{
+        enabled                  = [bool](Get-SiteVal $a 'enabled' $false)
+        endpoint                 = [string](Get-SiteVal $a 'endpoint' '')
+        authSource               = [string](Get-SiteVal $a 'authSource' 'local')
+        invalidCertificateAction = [string](Get-SiteVal $a 'invalidCertificateAction' 'Ignore')
+        useSystemProxy           = [bool](Get-SiteVal $a 'useSystemProxy' $false)
+        objectUrlTemplate        = [string](Get-SiteVal $a 'objectUrlTemplate' '')
+        reports                  = @(Get-SiteVal $a 'reports' @())
+        credential               = [ordered]@{ configured = [bool]$ve; username = $(if ($ve) { $ve.username } else { '' }); updatedAt = Get-SiteVal $cred 'updatedAt' $null }
+        lastTest                 = Read-PortalJson -Path (Join-Path (Get-PortalPath -Name Inventory) "$($Site.code).aria.json")
+    }
+}
+
+function New-PortalAriaDefaults {
+    param([string] $Code)
+    [ordered]@{ enabled = $false; endpoint = ''; authSource = 'local'; credential = [ordered]@{ type = 'Vault'; id = "aria-$($Code.ToLower())" }
+                invalidCertificateAction = 'Ignore'; useSystemProxy = $false; objectUrlTemplate = ''; reports = @() }
 }
 
 function Set-PortalSiteSettings {
@@ -99,7 +127,7 @@ function Set-PortalSiteSettings {
             if (-not $vc) { throw 'vCenter is required for a new site.' }
             $cv = [ordered]@{}
             if ($cfg.Contains('catalog') -and $cfg.catalog.Contains('siteValues')) { foreach ($sv in @($cfg.catalog.siteValues)) { $cv[$sv.key] = [string]$sv.default } }
-            $site = [ordered]@{ code = $Code; name = $Code; enabled = $false; vcenter = $vc; catalogValues = $cv
+            $site = [ordered]@{ code = $Code; name = $Code; enabled = $false; vcenter = $vc; catalogValues = $cv; aria = (New-PortalAriaDefaults -Code $Code)
                                 credential = [ordered]@{ type = 'Vault'; id = "vcenter-$($Code.ToLower())" }
                                 defaults = [ordered]@{ vmFolder = 'Portal-Provisioned'; dnsDomain = ''; dnsServers = @(); minDatastoreFreePercent = 15
                                                        allowedClusters = @(); portgroupFilter = '.*'; workloadClusters = [ordered]@{ App = ''; DB = '' } } }
@@ -126,6 +154,43 @@ function Set-PortalSiteSettings {
                 $v = [string]$Settings.catalogValues[$k]
                 if ($v.Length -gt 512 -or $v -match '[\x00-\x1f]') { throw "Catalog value '$k' is too long or contains control characters." }
                 $site.catalogValues[$k] = $v.Trim()
+            }
+        }
+        if ($Settings.Contains('aria') -and $Settings.aria -is [System.Collections.IDictionary]) {
+            $in = $Settings.aria
+            if (-not $site.Contains('aria')) { $site['aria'] = New-PortalAriaDefaults -Code $site.code }
+            $a = $site.aria
+            if ($in.Contains('endpoint')) {
+                $ep = ([string]$in.endpoint).Trim() -replace '^https?://', '' -replace '/.*$', ''
+                if ($ep -and $ep -notmatch '^[A-Za-z0-9.-]+(:\d{1,5})?$') { throw 'Aria Operations endpoint must be a host name (FQDN or IP).' }
+                $a['endpoint'] = $ep
+            }
+            if ($in.Contains('authSource')) {
+                $as = ([string]$in.authSource).Trim()
+                if ($as.Length -gt 128 -or $as -match '[\x00-\x1f]') { throw 'Aria Operations auth source is invalid.' }
+                $a['authSource'] = $(if ($as) { $as } else { 'local' })
+            }
+            if ($in.Contains('invalidCertificateAction')) {
+                if (@('Ignore', 'Fail') -notcontains [string]$in.invalidCertificateAction) { throw 'Aria Operations certificate validation must be Ignore or Fail.' }
+                $a['invalidCertificateAction'] = [string]$in.invalidCertificateAction
+            }
+            if ($in.Contains('useSystemProxy')) { $a['useSystemProxy'] = [bool]$in.useSystemProxy }
+            if ($in.Contains('objectUrlTemplate')) {
+                $t = ([string]$in.objectUrlTemplate).Trim()
+                if ($t -and $t -notmatch '^https://[^\s"<>]+$') { throw 'Aria object link template must be an https:// URL ({endpoint} and {id} are replaced).' }
+                $a['objectUrlTemplate'] = $t
+            }
+            if ($in.Contains('reports')) {
+                $a['reports'] = @(@($in.reports) | ForEach-Object {
+                    $rid = [string](Get-SiteVal $_ 'id' ''); $rn = [string](Get-SiteVal $_ 'name' '')
+                    if ($rid -notmatch '^[A-Za-z0-9-]{1,64}$') { throw "Invalid Aria report definition id '$rid'." }
+                    if (-not $rn -or $rn.Length -gt 200 -or $rn -match '[\x00-\x1f]') { throw 'Invalid Aria report definition name.' }
+                    [ordered]@{ id = $rid; name = $rn; subject = @(@(Get-SiteVal $_ 'subject' @()) | ForEach-Object { [string]$_ } | Where-Object { $_ -match '^[A-Za-z0-9_]{1,64}$' }) }
+                })
+            }
+            if ($in.Contains('enabled')) {
+                if ([bool]$in.enabled -and -not $a.endpoint) { throw 'Set the Aria Operations endpoint before enabling it.' }
+                $a['enabled'] = [bool]$in.enabled
             }
         }
         if ($Settings.Contains('vmFolder'))   { $d['vmFolder']   = [string]$Settings.vmFolder }
@@ -156,6 +221,62 @@ function Set-PortalSiteCredential {
         $s['credential'] = [ordered]@{ type = 'Vault'; id = $id; updatedAt = (Get-PortalTimestamp) }
     }
     Write-PortalAudit -Actor $Actor -Action 'site.credential' -Target $site.code -Details @{ username = $Username }
+}
+
+function Set-PortalSiteAriaCredential {
+    <# Stores the Aria Operations account of a site in the portal vault (entry aria-<site>, system scope). #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string] $Code,
+        [Parameter(Mandatory)] [string] $Username,
+        [Parameter(Mandatory)] [string] $Password,
+        [Parameter(Mandatory)] [string] $Actor
+    )
+    $site = Get-PortalSite -Code $Code
+    if (-not $site) { throw "Site $Code not found." }
+    if ($Username -notmatch '^[^\s]{1,128}$') { throw 'Invalid Aria Operations username.' }
+    $id = "aria-$($site.code.ToLower())"
+    $target = [string](Get-SiteVal (Get-SiteVal $site 'aria' @{}) 'endpoint' '')
+    Set-PortalVaultEntry -Id $id -Name "Aria Operations $($site.code) account" -Type UsernamePassword -Username $Username -Secret $Password `
+        -Target $target -Scope @{ system = $true } -Actor $Actor -New:(-not (Get-PortalVaultEntry -Id $id))
+    Update-PortalConfig -Mutate {
+        param($cfg)
+        $s = @($cfg.sites) | Where-Object { $_.code -eq $site.code } | Select-Object -First 1
+        if (-not $s.Contains('aria')) { $s['aria'] = New-PortalAriaDefaults -Code $s.code }
+        $s.aria['credential'] = [ordered]@{ type = 'Vault'; id = $id; updatedAt = (Get-PortalTimestamp) }
+    }
+    Write-PortalAudit -Actor $Actor -Action 'site.aria.credential' -Target $site.code -Details @{ username = $Username }
+}
+
+function Test-PortalSiteAria {
+    <#
+    .SYNOPSIS Runs automation/Test-AriaConnection.ps1 out-of-process; result (incl. report definitions) in data/inventory/<SITE>.aria.json.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [string] $Code, [int] $TimeoutSeconds = 90, [string] $Actor = 'system')
+    $site = Get-PortalSite -Code $Code
+    if (-not $site) { throw "Site $Code not found." }
+    $cfg    = Get-PortalConfig
+    $pwsh   = if ($cfg.jobs.pwshPath) { $cfg.jobs.pwshPath } else { 'pwsh' }
+    $script = Join-Path (Get-PortalPath -Name Automation) 'Test-AriaConnection.ps1'
+    $out    = Join-Path (Get-PortalPath -Name Inventory) "$($site.code).aria.json"
+    $logBase = Join-Path (Get-PortalPath -Name JobLogs) "ariatest-$($site.code)"
+    $env:SSP_PORTAL_ROOT = Get-PortalRoot
+    $sp = @{ FilePath = $pwsh; PassThru = $true; RedirectStandardOutput = "$logBase.stdout.log"; RedirectStandardError = "$logBase.stderr.log"
+             ArgumentList = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', "`"$script`"", '-Site', $site.code) }
+    if ($IsWindows) { $sp['WindowStyle'] = 'Hidden' }
+    $proc = Start-Process @sp
+    if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
+        Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+        Write-PortalJson -Path $out -Value ([ordered]@{ ok = $false; testedAt = (Get-PortalTimestamp); reportDefinitions = @(); error = "Aria Operations test timed out after $TimeoutSeconds s (check DNS and firewall 443 to the endpoint)." })
+    }
+    $r = Read-PortalJson -Path $out
+    if (-not $r) {
+        $err = if (Test-Path "$logBase.stderr.log") { (Get-Content "$logBase.stderr.log" -Raw) } else { 'No result produced.' }
+        $r = [ordered]@{ ok = $false; testedAt = (Get-PortalTimestamp); reportDefinitions = @(); error = "$err".Trim() }
+    }
+    Write-PortalAudit -Actor $Actor -Action 'site.aria.test' -Target $site.code -Details @{ ok = [bool]$r.ok }
+    return $r
 }
 
 function Test-PortalSiteConnection {
@@ -226,6 +347,7 @@ function Initialize-PortalConfiguration {
     if (-not $cfg.auth.Contains('localUsers')) { $changes.Add('auth.localUsers') }
     foreach ($s in @($cfg.sites)) {
         if (-not $s.Contains('defaults') -or -not $s.defaults.Contains('workloadClusters')) { $changes.Add("sites[$($s.code)].defaults.workloadClusters") }
+        if (-not $s.Contains('aria')) { $changes.Add("sites[$($s.code)].aria (Aria Operations connection, disabled)") }
         if ((Test-VaultMissing -Site $s)) { $changes.Add("sites[$($s.code)].credential -> portal-managed (vault '$($s.credential.vault)' not registered)") }
     }
     $done = @($(if ($cfg.Contains('_migrations')) { $cfg._migrations } else { @() }))
@@ -245,6 +367,11 @@ function Initialize-PortalConfiguration {
     if (-not $cfg.Contains('security')) { $changes.Add('security (session timeout, password policy, lockout, MFA)') }
     if (-not $cfg.Contains('vault'))    { $changes.Add('vault (credential vault)') }
     if (-not $cfg.Contains('operations')) { $changes.Add('operations (storage rescan cooldown, decommission quarantine, snapshots, test clones, power schedules)') }
+    else {
+        $defOpsPath = Join-Path $cfgDir 'portal.config.default.json'
+        $defOps = if (Test-Path -LiteralPath $defOpsPath) { (Read-PortalJson -Path $defOpsPath)['operations'] } else { $null }
+        if ($defOps) { foreach ($k in $defOps.Keys) { if (-not $cfg.operations.Contains($k)) { $changes.Add("operations.$k") } } }
+    }
     $itemsDir = Get-PortalPath -Name CatalogItems
     $retired = @('vm-windows-2022.json', 'vm-rhel-9.json') | Where-Object { Test-Path -LiteralPath (Join-Path $itemsDir $_) }
     if ($done -notcontains 'examples-2025' -and $retired) { $changes.Add("retired example items: $($retired -join ', ')") }
@@ -315,6 +442,7 @@ function Initialize-PortalConfiguration {
             }
         }
         if (-not $c.Contains('operations') -and $def.Contains('operations')) { $c['operations'] = $def.operations }
+        elseif ($def.Contains('operations')) { foreach ($k in $def.operations.Keys) { if (-not $c.operations.Contains($k)) { $c.operations[$k] = $def.operations[$k] } } }
         if (-not $c.Contains('catalog')) {
             $cat = if ($def.Contains('catalog')) { $def.catalog } else { [ordered]@{ teamRoles = [ordered]@{}; siteValues = @() } }
             # Map the team roles to the teams this installation already has (first team = datacenter, a team named *cloud* = cloud).
@@ -328,6 +456,7 @@ function Initialize-PortalConfiguration {
         }
         # Every site gets the per-site catalog values declared in catalog.siteValues (TBD placeholders until set in Admin).
         foreach ($s in @($c.sites)) {
+            if (-not $s.Contains('aria')) { $s['aria'] = New-PortalAriaDefaults -Code $s.code }
             if (-not $s.Contains('catalogValues')) { $s['catalogValues'] = [ordered]@{} }
             foreach ($sv in @($c.catalog.siteValues)) { if (-not $s.catalogValues.Contains($sv.key)) { $s.catalogValues[$sv.key] = [string]$sv.default } }
         }
@@ -354,4 +483,5 @@ function Initialize-PortalConfiguration {
     Write-PortalAudit -Actor 'system' -Action 'config.upgrade' -Details @{ added = @($changes) }
 }
 
-Export-ModuleMember -Function Initialize-PortalConfiguration, Get-PortalSiteView, Set-PortalSiteSettings, Set-PortalSiteCredential, Test-PortalSiteConnection, Update-PortalConfig
+Export-ModuleMember -Function Initialize-PortalConfiguration, Get-PortalSiteView, Set-PortalSiteSettings, Set-PortalSiteCredential, Test-PortalSiteConnection, Update-PortalConfig,
+    Set-PortalSiteAriaCredential, Test-PortalSiteAria

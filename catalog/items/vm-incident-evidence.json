@@ -1,0 +1,129 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "vm-incident-evidence",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Incident evidence export (RCA)",
+  "category": "Reports",
+  "icon": "vm",
+  "summary": "Peak metrics, Aria alerts and vCenter events around an incident, packed for the ticket.",
+  "description": "Exports the evidence of an incident for one VM and its host: Aria Operations statistics with the MAX rollup (peaks are kept), Aria alerts that overlap the window, vSphere performance counters, vCenter events and tasks (snapshots, vMotion, HA, power, connectivity) and current snapshots. Produces a summary HTML with timeline charts, CSV files and a zip evidence pack to attach to the incident or RCA. Read-only.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "RCA",
+    "Aria Operations",
+    "vSphere",
+    "Evidence"
+  ],
+  "estimatedDuration": "1-5 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "execution": {
+    "handler": "Export-VmIncidentEvidence.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 20,
+    "aria": "optional",
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "IncidentTime",
+      "label": "Incident time",
+      "type": "text",
+      "group": "Incident",
+      "required": true,
+      "help": "yyyy-MM-dd HH:mm in the portal time zone (operations.troubleshooting.timeZone, default UTC).",
+      "placeholder": "2026-10-21 03:40",
+      "validation": {
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}(:\\d{2})?$",
+        "patternMessage": "Use yyyy-MM-dd HH:mm."
+      }
+    },
+    {
+      "name": "MinutesBefore",
+      "label": "Minutes before",
+      "type": "number",
+      "group": "Incident",
+      "required": true,
+      "default": 60,
+      "validation": {
+        "min": 5,
+        "max": 1440
+      }
+    },
+    {
+      "name": "MinutesAfter",
+      "label": "Minutes after",
+      "type": "number",
+      "group": "Incident",
+      "required": true,
+      "default": 60,
+      "validation": {
+        "min": 5,
+        "max": 1440
+      }
+    },
+    {
+      "name": "Reference",
+      "label": "Incident / ticket reference",
+      "type": "text",
+      "group": "Incident",
+      "required": false,
+      "validation": {
+        "maxLength": 40
+      }
+    },
+    {
+      "name": "IncludeHost",
+      "label": "Include host",
+      "type": "boolean",
+      "group": "Sources",
+      "required": false,
+      "default": true
+    },
+    {
+      "name": "UseAria",
+      "label": "Include Aria Operations",
+      "type": "boolean",
+      "group": "Sources",
+      "required": false,
+      "default": true,
+      "help": "Used when the site has an Aria Operations connection."
+    }
+  ]
+}

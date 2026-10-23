@@ -406,7 +406,7 @@ Start-PodeServer -Threads 8 -RootPath $root {
         if ($r.Status -ne 200) { Write-PodeJsonResponse -Value $r.Body -StatusCode $r.Status; return }
         Set-PodeHeader -Name 'Content-Security-Policy' -Value "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
         Set-PodeHeader -Name 'X-Content-Type-Options' -Value 'nosniff'
-        if ($file -like '*.csv') { Set-PodeHeader -Name 'Content-Disposition' -Value ('attachment; filename=' + $file) }
+        if ($file -notlike '*.html') { Set-PodeHeader -Name 'Content-Disposition' -Value ('attachment; filename=' + $file) }
         Write-PodeFileResponse -Path $r.Body
     }
 
@@ -564,21 +564,34 @@ Start-PodeServer -Threads 8 -RootPath $root {
         Write-PodeJsonResponse -Value $r.Body -StatusCode $r.Status -Depth 20
     }
 
-    # Body: { code?, new?, name, vcenter, enabled, invalidCertificateAction, workloadClusters:{App,DB}, vmFolder, dnsDomain, dnsServers[], catalogValues:{key:value}, username?, password? }
+    # Body: { code?, new?, name, vcenter, enabled, invalidCertificateAction, workloadClusters:{App,DB}, vmFolder, dnsDomain, dnsServers[], catalogValues:{key:value}, username?, password?,
+    #         aria:{ enabled, endpoint, authSource, invalidCertificateAction, useSystemProxy, objectUrlTemplate, reports:[{id,name,subject[]}] }, ariaUsername?, ariaPassword? }
     Add-PodeRoute -Method Post -Path '/api/admin/sites' -Authentication $authName -ScriptBlock {
         $body = ConvertTo-PortalHashtable $WebEvent.Data
         if (-not $body) { $body = @{} }
         $r = Invoke-PortalApi -WebEvent $WebEvent -Permission 'connections.manage' -Action {
             param($u)
-            if ($body['password']) { $null = Test-PortalSessionGate -Sid $u.sid -RequireReauth }
+            if ($body['password'] -or $body['ariaPassword']) { $null = Test-PortalSessionGate -Sid $u.sid -RequireReauth }
             try {
                 Set-PortalSiteSettings -Code ([string]$body['code']) -Settings $body -New:([bool]$body['new']) -Actor $u.username
                 if ($body['username'] -and $body['password']) {
                     Set-PortalSiteCredential -Code ([string]$body['code']) -Username ([string]$body['username']) -Password ([string]$body['password']) -Actor $u.username
                 }
+                if ($body['ariaUsername'] -and $body['ariaPassword']) {
+                    Set-PortalSiteAriaCredential -Code ([string]$body['code']) -Username ([string]$body['ariaUsername']) -Password ([string]$body['ariaPassword']) -Actor $u.username
+                }
             }
             catch { New-PortalApiError -Status 422 -Message $_.Exception.Message }
             [ordered]@{ saved = $true; sites = @(Get-PortalSiteView) }
+        }
+        Write-PodeJsonResponse -Value $r.Body -StatusCode $r.Status -Depth 20
+    }
+
+    Add-PodeRoute -Method Post -Path '/api/admin/sites/:code/aria/test' -Authentication $authName -ScriptBlock {
+        $code = $WebEvent.Parameters['code']
+        $r = Invoke-PortalApi -WebEvent $WebEvent -Permission 'connections.manage' -Action {
+            param($u)
+            try { Test-PortalSiteAria -Code $code -Actor $u.username } catch { New-PortalApiError -Status 422 -Message $_.Exception.Message }
         }
         Write-PodeJsonResponse -Value $r.Body -StatusCode $r.Status -Depth 20
     }

@@ -8,7 +8,8 @@
 
     Contract with handlers (automation/handlers/*.ps1):
       * Parameters = the catalog item's input names + execution.fixedParameters keys (+ optional -Context).
-      * -Context exposes RequestId, Requester, Site (config), VIServer (connected session), RollbackOnFailure.
+      * -Context exposes RequestId, Requester, Site (config), VIServer (connected session), RollbackOnFailure,
+        Aria (Aria Operations connection when execution.aria is 'required' or 'optional' and the site has one, else $null).
       * Log with Write-JobLog "message" [-Level INFO|WARN|ERROR]; Write-Host / Write-Warning are also captured.
       * Return a hashtable with the outcome (shown to the requester). Throw to fail the job.
 #>
@@ -32,6 +33,7 @@ Import-Module (Join-Path $root 'modules/Portal.Storage.psm1')  -Force
 Import-Module (Join-Path $root 'automation/lib/Portal.Report.psm1') -Force
 Import-Module (Join-Path $root 'automation/lib/Portal.Vsphere.psm1') -Force
 Import-Module (Join-Path $root 'automation/lib/Portal.CloudConnect.psm1') -Force
+Import-Module (Join-Path $root 'automation/lib/Portal.AriaOps.psm1') -Force
 
 $global:SspJobLogPath = Join-Path (Get-PortalPath -Name JobLogs) "$RequestId.log"
 
@@ -49,6 +51,7 @@ function global:Write-JobLog {
 $global:JobSecrets = [System.Collections.Generic.List[string]]::new()
 $vi = $null
 $cloud = $null
+$aria = $null
 try {
     $req = Get-PortalRequest -Id $RequestId
     if (-not $req) { throw "Request $RequestId not found." }
@@ -84,8 +87,33 @@ try {
         Write-JobLog -Level OK "Connected to $($req.execution.cloud.ToUpper()) ($(if ($cloud.Provider -eq 'aws') { $cloud.Region } else { "subscription $($cloud.SubscriptionId)" }))"
     }
 
+    # Aria Operations session (read-only) for troubleshooting / report items: execution.aria = "required" | "optional".
+    $ariaMode = if ($req.execution.Contains('aria')) { [string]$req.execution.aria } else { '' }
+    if ($ariaMode -in 'required', 'optional') {
+        $ariaSite = if ($siteCfg) { $siteCfg } else { Get-PortalSite -Code ([string]$req.inputs[$req.execution.siteInput]) }
+        $useAria = -not ($req.inputs.Contains('UseAria') -and -not [bool]$req.inputs['UseAria'])
+        if (-not $useAria -and $ariaMode -eq 'optional') { Write-JobLog 'Aria Operations not requested for this run.' }
+        elseif (-not ($ariaSite -and (Get-PortalAriaSettings -Site $ariaSite))) {
+            $m = "Aria Operations is not configured or not enabled for site $($ariaSite.code) (Admin > vCenter connections > Aria Operations)."
+            if ($ariaMode -eq 'required') { throw $m } else { Write-JobLog -Level WARN "$m Continuing without it." }
+        }
+        else {
+            try {
+                Write-JobLog -Level STEP "Connecting to Aria Operations $($ariaSite.aria.endpoint)"
+                $aria = Connect-PortalAria -Site $ariaSite
+                Write-JobLog -Level OK "Aria Operations token acquired$(if ($aria.Version) { " ($($aria.Version))" })."
+            }
+            catch {
+                if ($ariaMode -eq 'required') { throw }
+                Write-JobLog -Level WARN "Aria Operations unavailable: $(Get-PortalErrorDetail -ErrorRecord $_) Continuing without it."
+                $aria = $null
+            }
+        }
+    }
+
     $cfg = Get-PortalConfig
     $context = [pscustomobject]@{
+        Aria              = $aria
         Cloud             = $cloud
         RequestId         = $RequestId
         Requester         = $req.requester
@@ -179,6 +207,7 @@ catch {
     exit 1
 }
 finally {
+    if ($aria) { Disconnect-PortalAria -Aria $aria; Write-JobLog 'Aria Operations token released.' }
     if ($cloud) { Disconnect-PortalCloud -Cloud $cloud }
     if ($vi) {
         Disconnect-PortalVIServer -Server $vi

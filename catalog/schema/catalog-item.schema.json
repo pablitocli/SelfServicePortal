@@ -162,6 +162,14 @@
             "pattern": "^[a-z0-9][a-z0-9._-]{1,62}$"
           },
           "description": "Vault credentials bound to handler parameters: { \"GuestCredential\": \"vault-entry-id\" }. The runner passes a [pscredential]."
+        },
+        "aria": {
+          "type": "string",
+          "enum": [
+            "required",
+            "optional"
+          ],
+          "description": "Open an Aria Operations session for the site (Context.Aria). optional = continue without it when not configured or unreachable; an input named UseAria (boolean) can switch it off per request."
         }
       }
     },
@@ -293,7 +301,8 @@
                 "awsSubnets",
                 "awsInstanceTypes",
                 "azureSubnets",
-                "azureVmSizes"
+                "azureVmSizes",
+                "ariaReports"
               ]
             },
             "dependsOn": {
@@ -341,6 +350,10 @@
                 "linux"
               ],
               "description": "softwareSets: only sets for this OS."
+            },
+            "subject": {
+              "type": "string",
+              "description": "ariaReports: only definitions whose subject includes this resource kind (e.g. VirtualMachine)."
             }
           }
         },

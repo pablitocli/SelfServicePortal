@@ -28,6 +28,7 @@ foreach ($m in 'modules/Portal.Core.psm1', 'modules/Portal.Security.psm1', 'modu
 if (Test-Path (Join-Path $global:SspHandlerTestRoot 'automation/lib/Portal.Guest.psm1')) {
     Import-Module (Join-Path $global:SspHandlerTestRoot 'automation/lib/Portal.Guest.psm1') -Force -Global -DisableNameChecking
 }
+Import-Module (Join-Path $global:SspHandlerTestRoot 'automation/lib/Portal.AriaOps.psm1') -Force -Global -DisableNameChecking
 if (-not $global:SspTestResults) { $global:SspTestResults = [System.Collections.Generic.List[object]]::new() }
 $global:JobLog = [System.Collections.Generic.List[string]]::new()
 
@@ -54,10 +55,11 @@ function global:New-TestSite {
 
 function global:New-TestContext {
     <# A job context like Invoke-CatalogJob.ps1 builds (VIServer is a fake object). #>
-    param([string] $Site = 'DC1', [string] $ItemId = 'test-item', $Cloud, [switch] $NoVCenter, [bool] $Rollback = $true)
+    param([string] $Site = 'DC1', [string] $ItemId = 'test-item', $Cloud, [switch] $NoVCenter, [bool] $Rollback = $true, $Aria)
     $id = 'REQ-20261005-' + ([guid]::NewGuid().ToString('N').Substring(0, 6).ToUpper())
     $cfg = Get-PortalConfig
     [pscustomobject]@{
+        Aria              = $Aria
         Cloud             = $Cloud
         RequestId         = $id
         Requester         = [ordered]@{ username = 'jdoe'; name = 'John Doe'; email = 'jdoe@test.local' }
@@ -87,3 +89,32 @@ function global:Invoke-TestHandler {
 }
 
 function global:Get-TestReportFiles { param($Context) if (Test-Path $Context.ReportDir) { @(Get-ChildItem $Context.ReportDir -File | ForEach-Object Name) } else { @() } }
+
+function global:New-TestAria {
+    <#
+    .SYNOPSIS Fake Aria Operations connection. Routes: ordered @{ 'GET /resources?name=APP*' = <object | scriptblock param($Body,$OutFile)> }.
+              The key is "<METHOD> <path wildcard>"; the first match wins. Calls are recorded in $global:AriaCalls.
+    #>
+    param([System.Collections.IDictionary] $Routes = [ordered]@{})
+    $global:AriaCalls = [System.Collections.Generic.List[string]]::new()
+    $global:AriaRoutes = $Routes
+    [pscustomobject]@{
+        Site = 'DC1'; Endpoint = 'ops.test.local'; BaseUri = 'https://ops.test.local/suite-api/api'; UiUri = 'https://ops.test.local/ui/'
+        AuthSource = 'local'; SkipCertificateCheck = $true; NoProxy = $true; TimeoutSec = 30; Token = 'fake-token'; ValidUntil = $null
+        Version = '9.0.1'; ObjectUrlTemplate = 'https://{endpoint}/ui/object/{id}'
+        Transport = {
+            param($Method, $Path, $Body, $OutFile)
+            $global:AriaCalls.Add("$($Method.ToUpper()) $Path")
+            foreach ($k in $global:AriaRoutes.Keys) {
+                $m, $pat = $k -split ' ', 2
+                if ($m -eq $Method.ToUpper() -and $Path -like $pat) {
+                    $v = $global:AriaRoutes[$k]
+                    if ($v -is [scriptblock]) { return (& $v $Body $OutFile) }
+                    if ($OutFile) { Set-Content -LiteralPath $OutFile -Value 'fake report' ; return $OutFile }
+                    return ($v | ConvertTo-Json -Depth 20 | ConvertFrom-Json)
+                }
+            }
+            throw "Aria Operations $Method $Path failed (HTTP 404): no fake route."
+        }
+    }
+}

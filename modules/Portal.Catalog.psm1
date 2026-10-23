@@ -14,7 +14,7 @@ Set-StrictMode -Version Latest
 $script:ValidInputTypes  = @('text', 'textarea', 'number', 'select', 'boolean', 'ipv4', 'credential')
 $script:ValidSourceTypes = @('sites', 'clusters', 'datastores', 'datastoreClusters', 'portgroups', 'templates', 'folders', 'vms',
                             'hosts', 'vdSwitches', 'storageDevices', 'softwareSets', 'backupPolicies',
-                            'awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes')
+                            'awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes', 'ariaReports')
 $script:CloudSources     = @('awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes')
 $script:ValidRoles       = @('Requester', 'Approver', 'Admin', 'CatalogAdmin', 'SecurityAdmin', 'VaultAdmin')
 $script:InventorySources = @('clusters', 'datastores', 'datastoreClusters', 'portgroups', 'templates', 'folders', 'vms', 'hosts', 'vdSwitches', 'storageDevices')
@@ -180,7 +180,7 @@ function Test-PortalCatalogDefinition {
             foreach ($d in @(Get-Prop $src 'dependsOn' @())) {
                 if (-not $seen.Contains($d)) { $err.Add("Input '$n': dependsOn '$d' must reference an input declared earlier.") }
             }
-            if ($script:InventorySources -contains $st -and @(Get-Prop $src 'dependsOn' @()) -notcontains (Get-Prop $exec 'siteInput' 'Site')) {
+            if (($script:InventorySources + 'ariaReports') -contains $st -and @(Get-Prop $src 'dependsOn' @()) -notcontains (Get-Prop $exec 'siteInput' 'Site')) {
                 $err.Add("Input '$n': source '$st' must depend on the site input '$(Get-Prop $exec 'siteInput' 'Site')'.")
             }
             $f = Get-Prop $src 'filter'
@@ -207,6 +207,10 @@ function Test-PortalCatalogDefinition {
     if ((Get-Prop $Item 'vmNotes' $false) -and $handlerParams -and $handlerParams -notcontains 'VmNotes') {
         $err.Add("vmNotes is enabled but handler $handler has no -VmNotes parameter.")
     }
+
+    $ariaMode = Get-Prop $exec 'aria'
+    if ($ariaMode -and @('required', 'optional') -notcontains $ariaMode) { $err.Add("execution.aria must be 'required' or 'optional'.") }
+    if ($ariaMode -and -not (Get-Prop $exec 'requiresVCenter' $true)) { $err.Add('execution.aria needs a site: set execution.requiresVCenter = true.') }
 
     $cloud = Get-Prop $exec 'cloud'
     if ($cloud -and @('aws', 'azure') -notcontains $cloud) { $err.Add("execution.cloud must be 'aws' or 'azure'.") }
@@ -423,6 +427,21 @@ function Get-PortalLookupOptions {
         }
         $rows = @($rows)
         if ($filter) { $rows = @($rows | Where-Object { $_.value -match $filter }) }
+        return $rows
+    }
+
+    if ($type -eq 'ariaReports') {
+        # Report definitions an Admin offered for the site (Admin > vCenter connections > Aria Operations); optional source.subject filter.
+        $siteCode = [string](Get-Prop $Values (Get-Prop $Item.execution 'siteInput' 'Site'))
+        $site = Get-PortalSite -Code $siteCode
+        if (-not $site) { return @() }
+        $aria = Get-Prop $site 'aria' @{}
+        if (-not (Get-Prop $aria 'enabled' $false)) { throw "Aria Operations is not enabled for site $siteCode (Admin > vCenter connections)." }
+        $subject = [string](Get-Prop $src 'subject' '')
+        $rows = @(@(Get-Prop $aria 'reports' @()) |
+            Where-Object { -not $subject -or -not @(Get-Prop $_ 'subject' @()).Count -or @(Get-Prop $_ 'subject' @()) -contains $subject } |
+            ForEach-Object { [ordered]@{ value = [string]$_.id; label = [string]$_.name } })
+        if ($filter) { $rows = @($rows | Where-Object { $_.label -match $filter }) }
         return $rows
     }
 

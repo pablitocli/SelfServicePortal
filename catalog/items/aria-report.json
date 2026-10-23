@@ -1,0 +1,179 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "aria-report",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Aria Operations report",
+  "category": "Reports",
+  "icon": "generic",
+  "summary": "Runs an Aria Operations report for a VM, host, cluster or datastore and attaches it to the request.",
+  "description": "Generates one of the Aria Operations report definitions offered for the site (Admin > vCenter connections > Aria Operations) for the chosen object and attaches the PDF and / or CSV to the request. No change is made in vSphere.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "Aria Operations",
+    "Report"
+  ],
+  "estimatedDuration": "1-10 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "execution": {
+    "handler": "Invoke-AriaOperationsReport.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 20,
+    "aria": "required",
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "ObjectType",
+      "label": "Object type",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "default": "VirtualMachine",
+      "options": [
+        {
+          "value": "VirtualMachine",
+          "label": "Virtual machine"
+        },
+        {
+          "value": "HostSystem",
+          "label": "ESXi host"
+        },
+        {
+          "value": "ClusterComputeResource",
+          "label": "Cluster"
+        },
+        {
+          "value": "Datastore",
+          "label": "Datastore"
+        }
+      ]
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ]
+      },
+      "visibleWhen": {
+        "field": "ObjectType",
+        "equals": "VirtualMachine"
+      }
+    },
+    {
+      "name": "HostName",
+      "label": "ESXi host",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "hosts",
+        "dependsOn": [
+          "Site"
+        ]
+      },
+      "visibleWhen": {
+        "field": "ObjectType",
+        "equals": "HostSystem"
+      }
+    },
+    {
+      "name": "ClusterName",
+      "label": "Cluster",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "clusters",
+        "dependsOn": [
+          "Site"
+        ]
+      },
+      "visibleWhen": {
+        "field": "ObjectType",
+        "equals": "ClusterComputeResource"
+      }
+    },
+    {
+      "name": "DatastoreName",
+      "label": "Datastore",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "datastores",
+        "dependsOn": [
+          "Site"
+        ]
+      },
+      "visibleWhen": {
+        "field": "ObjectType",
+        "equals": "Datastore"
+      }
+    },
+    {
+      "name": "ReportDefinition",
+      "label": "Report",
+      "type": "select",
+      "group": "Report",
+      "required": true,
+      "source": {
+        "type": "ariaReports",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "Format",
+      "label": "Format",
+      "type": "select",
+      "group": "Report",
+      "required": true,
+      "default": "PDF",
+      "options": [
+        {
+          "value": "PDF",
+          "label": "PDF"
+        },
+        {
+          "value": "CSV",
+          "label": "CSV"
+        },
+        {
+          "value": "Both",
+          "label": "PDF and CSV"
+        }
+      ]
+    }
+  ]
+}

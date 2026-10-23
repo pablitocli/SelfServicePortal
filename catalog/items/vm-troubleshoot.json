@@ -1,0 +1,232 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "vm-troubleshoot",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "VM troubleshooting",
+  "category": "Datacenter operations",
+  "icon": "vm",
+  "summary": "Correlates guest OS, vSphere and Aria Operations data for one VM and ranks probable causes.",
+  "description": "Read-only diagnosis of one VM over a time window (last hour / day / week, or around an incident). Collects vSphere performance counters of the VM and its host (CPU ready, co-stop, balloon, swap, disk latency, network drops), snapshots, VMware Tools and vCenter events; optionally runs a read-only script in the guest (uptime, pending reboot, memory, disks, stopped services, error events) and reads Aria Operations (health, alerts, peak statistics). Returns a verdict, ranked findings with their sources, an HTML report with charts and an evidence pack (zip). Nothing is changed.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Aria Operations",
+    "Troubleshooting",
+    "Guest OS"
+  ],
+  "estimatedDuration": "1-5 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "execution": {
+    "handler": "Get-VmTroubleshooting.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 20,
+    "aria": "optional",
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "help": "Search the inventory by name.",
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "Symptom",
+      "label": "Symptom",
+      "type": "select",
+      "group": "Target",
+      "required": false,
+      "options": [
+        {
+          "value": "Slowness",
+          "label": "Slowness / timeouts"
+        },
+        {
+          "value": "Hang",
+          "label": "Unresponsive / hang"
+        },
+        {
+          "value": "Restart",
+          "label": "Unexpected restart"
+        },
+        {
+          "value": "Failover",
+          "label": "Cluster failover"
+        },
+        {
+          "value": "Other",
+          "label": "Other"
+        }
+      ]
+    },
+    {
+      "name": "WindowMode",
+      "label": "Time window",
+      "type": "select",
+      "group": "Time window",
+      "required": true,
+      "default": "Last24h",
+      "options": [
+        {
+          "value": "Last1h",
+          "label": "Last hour"
+        },
+        {
+          "value": "Last24h",
+          "label": "Last 24 hours"
+        },
+        {
+          "value": "Last7d",
+          "label": "Last 7 days"
+        },
+        {
+          "value": "Incident",
+          "label": "Around an incident"
+        }
+      ]
+    },
+    {
+      "name": "IncidentTime",
+      "label": "Incident time",
+      "type": "text",
+      "group": "Time window",
+      "required": true,
+      "help": "yyyy-MM-dd HH:mm in the portal time zone (operations.troubleshooting.timeZone, default UTC).",
+      "placeholder": "2026-10-21 03:40",
+      "validation": {
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}(:\\d{2})?$",
+        "patternMessage": "Use yyyy-MM-dd HH:mm."
+      },
+      "visibleWhen": {
+        "field": "WindowMode",
+        "equals": "Incident"
+      }
+    },
+    {
+      "name": "MinutesBefore",
+      "label": "Minutes before",
+      "type": "number",
+      "group": "Time window",
+      "required": true,
+      "default": 60,
+      "validation": {
+        "min": 0,
+        "max": 1440
+      },
+      "visibleWhen": {
+        "field": "WindowMode",
+        "equals": "Incident"
+      }
+    },
+    {
+      "name": "MinutesAfter",
+      "label": "Minutes after",
+      "type": "number",
+      "group": "Time window",
+      "required": true,
+      "default": 30,
+      "validation": {
+        "min": 0,
+        "max": 1440
+      },
+      "visibleWhen": {
+        "field": "WindowMode",
+        "equals": "Incident"
+      }
+    },
+    {
+      "name": "IncludeHost",
+      "label": "Include host and datastores",
+      "type": "boolean",
+      "group": "Sources",
+      "required": false,
+      "default": true,
+      "help": "Adds host counters and events to tell VM problems from host / datastore problems."
+    },
+    {
+      "name": "UseGuest",
+      "label": "Include guest OS",
+      "type": "boolean",
+      "group": "Sources",
+      "required": false,
+      "default": false,
+      "help": "Runs a read-only script through VMware Tools with a vault credential."
+    },
+    {
+      "name": "GuestCredential",
+      "label": "Guest credential",
+      "type": "credential",
+      "group": "Sources",
+      "required": true,
+      "help": "Windows: local or domain administrator. Linux: a user that can read the journal (root or sudo).",
+      "vaultTags": [
+        "guest-windows",
+        "guest-linux"
+      ],
+      "visibleWhen": {
+        "field": "UseGuest",
+        "equals": true
+      }
+    },
+    {
+      "name": "UseAria",
+      "label": "Include Aria Operations",
+      "type": "boolean",
+      "group": "Sources",
+      "required": false,
+      "default": true,
+      "help": "Used when the site has an Aria Operations connection (Admin > vCenter connections)."
+    },
+    {
+      "name": "AriaReport",
+      "label": "Also generate Aria report (PDF)",
+      "type": "select",
+      "group": "Sources",
+      "required": false,
+      "help": "Report definitions offered by the Admin for this site.",
+      "source": {
+        "type": "ariaReports",
+        "subject": "VirtualMachine",
+        "dependsOn": [
+          "Site"
+        ]
+      },
+      "visibleWhen": {
+        "field": "UseAria",
+        "equals": true
+      }
+    }
+  ]
+}

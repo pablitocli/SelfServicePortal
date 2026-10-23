@@ -10,7 +10,7 @@
   const ROLE_HELP = { Requester: 'request services', Approver: 'approve requests of their teams', Admin: 'everything',
                       CatalogAdmin: 'catalog, branding, teams, VM notes', SecurityAdmin: 'identity, users, security policy, audit', VaultAdmin: 'credential vault' };
   const INPUT_TYPES = ['text', 'textarea', 'number', 'select', 'boolean', 'ipv4', 'credential'];
-  const SOURCE_TYPES = ['', 'sites', 'clusters', 'datastores', 'datastoreClusters', 'portgroups', 'templates', 'folders', 'vms', 'hosts', 'vdSwitches', 'storageDevices', 'softwareSets', 'backupPolicies', 'awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes'];
+  const SOURCE_TYPES = ['', 'sites', 'clusters', 'datastores', 'datastoreClusters', 'portgroups', 'templates', 'folders', 'vms', 'hosts', 'vdSwitches', 'storageDevices', 'softwareSets', 'backupPolicies', 'awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes', 'ariaReports'];
   const ICON_KEYS = ['vm', 'windows', 'linux', 'snapshot', 'network', 'storage', 'backup', 'security', 'database', 'cloud', 'generic'];
   const TABS = [['catalog', 'Catalog', ['catalog.manage']], ['datafiles', 'Data files', ['catalog.manage']], ['customization', 'Customization', ['catalog.manage', 'security.manage']],
                 ['vcenters', 'vCenter connections', ['connections.manage']], ['clouds', 'Cloud connections', ['connections.manage']],
@@ -447,6 +447,7 @@
       </div>`;
     body.querySelectorAll('[data-save]').forEach((b) => b.addEventListener('click', () => saveSite(body, b.dataset.save)));
     body.querySelectorAll('[data-test]').forEach((b) => b.addEventListener('click', () => testSite(body, b.dataset.test, b)));
+    body.querySelectorAll('[data-ariatest]').forEach((b) => b.addEventListener('click', () => testAria(body, b.dataset.ariatest, b)));
     body.querySelectorAll('[data-inv]').forEach((b) => b.addEventListener('click', async () => {
       b.disabled = true;
       try { const r = await P().api('/api/admin/inventory/refresh', { method: 'POST', body: { site: b.dataset.inv } }); P().toast(r.started.length ? `Inventory refresh started: ${r.started.join(', ')}` : 'Refresh already running.'); }
@@ -497,6 +498,7 @@
         ${fld('DNS servers (comma)', `<input type="text" id="${id('dns')}" value="${esc((x.dnsServers || []).join(', '))}">`)}
         <div class="field wide"><label class="toggle"><input type="checkbox" id="${id('en')}" ${x.enabled ? 'checked' : ''}> Site enabled (offered in request forms)</label></div>
         ${catalogValueFields(x, id)}
+        ${ariaFields(x, id)}
       </div>${clusterList}
       <div class="actions" style="margin-top:14px">
         <button class="btn btn-primary btn-sm" data-save="${esc(x.code)}">Save</button>
@@ -506,6 +508,36 @@
       ${inv ? `<div class="muted" style="font-size:12.5px;margin-top:10px">Inventory: ${inv.collectedAt ? `${P().fmtDate(inv.collectedAt)} (${inv.ageMinutes} min ago)` : 'never collected'}${inv.running ? ' &middot; refreshing...' : ''}
         ${inv.counts ? ` &middot; ${Object.entries(inv.counts).map(([k, v]) => `${v} ${k}`).join(', ')}` : ''}${inv.lastError ? `<br><span style="color:var(--err)">${esc(inv.lastError)}</span>` : ''}</div>` : ''}
     </div>`;
+  }
+
+  // Aria Operations (per site): connection, account (vault) and the report definitions offered in request forms.
+  const ariaDefs = {};
+  function ariaFields(x, id) {
+    const a = x.aria || { credential: {} }, t = a.lastTest, c = a.credential || {};
+    const offered = new Set((a.reports || []).map((r) => r.id));
+    const defs = (t && t.ok && t.reportDefinitions) ? t.reportDefinitions : (a.reports || []);
+    ariaDefs[x.code] = Object.fromEntries(defs.map((d) => [d.id, d]));
+    const status = t ? (t.ok ? `<span class="tag tag-auto">connected ${esc(t.version || '')}</span>` : '<span class="tag tag-approval">test failed</span>') : '<span class="muted">not tested</span>';
+    return `<div class="field wide" style="border-top:1px solid var(--line);padding-top:12px;margin-top:4px"><label>Aria Operations ${status}</label>
+        <div class="muted" style="font-size:12.5px">Read-only source for VM troubleshooting, incident evidence and Aria reports. Use an account with a read-only role plus report generation.</div></div>
+      <div class="field wide"><label class="toggle"><input type="checkbox" id="${id('ariaEn')}" ${a.enabled ? 'checked' : ''}> Use Aria Operations for this site</label></div>
+      ${fld('Aria Operations FQDN', `<input type="text" id="${id('ariaEp')}" value="${esc(a.endpoint || '')}" placeholder="ops01.corp.example.com">`)}
+      ${fld('Auth source', `<input type="text" id="${id('ariaAs')}" value="${esc(a.authSource || 'local')}">`, 'local, or the name of the AD / vIDM source configured in Aria.')}
+      ${fld('Account', `<input type="text" id="${id('ariaUser')}" value="${esc(c.username || '')}" autocomplete="off">`, c.configured ? `Stored${c.updatedAt ? ' ' + P().fmtDate(c.updatedAt) : ''} (encrypted)` : '<span style="color:var(--err)">No credential stored</span>')}
+      ${fld('Password', `<input type="password" id="${id('ariaPw')}" placeholder="${c.configured ? 'unchanged' : 'required'}" autocomplete="new-password">`)}
+      ${fld('Certificate validation', `<select id="${id('ariaCert')}">${[['Ignore', 'Ignore - accept self-signed'], ['Fail', 'Fail - require a trusted CA']].map(([o, l]) => `<option value="${o}" ${a.invalidCertificateAction === o ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
+      ${fld('Object link template (optional)', `<input type="text" id="${id('ariaUrl')}" value="${esc(a.objectUrlTemplate || '')}" placeholder="https://{endpoint}/ui/...{id}">`, 'Link shown in results; {endpoint} and {id} are replaced. Empty = Aria home page.')}
+      <div class="field wide"><label>Report definitions offered in the portal</label>
+        ${defs.length ? `<div class="checks">${defs.map((d) => `<label class="toggle"><input type="checkbox" data-ariarep="${esc(x.code)}" value="${esc(d.id)}" ${offered.has(d.id) ? 'checked' : ''}> ${esc(d.name)}${(d.subject || []).length ? ` <span class="muted">${esc(d.subject.join(', '))}</span>` : ''}</label>`).join('')}</div>`
+          : '<div class="muted" style="font-size:12.5px">Run "Test Aria and sync reports" to load the definitions.</div>'}
+        <div style="margin-top:8px"><button type="button" class="btn btn-sm" data-ariatest="${esc(x.code)}">Test Aria and sync reports</button></div>
+        <div id="${id('ariaRes')}">${t ? ariaResult(t) : ''}</div></div>`;
+  }
+
+  function ariaResult(t) {
+    if (!t.ok) return `<div class="alert alert-err" style="margin:10px 0 0">${esc(t.error)}<br><span class="muted">${P().fmtDate(t.testedAt)}</span></div>`;
+    return `<div class="alert alert-ok" style="margin:10px 0 0"><b>${esc(t.endpoint)}</b> &middot; ${esc(t.version || 'version n/a')} &middot; ${esc(t.user || '')} &middot; ${t.durationMs} ms
+      ${t.virtualMachines != null ? `<br>${t.virtualMachines} virtual machines visible` : ''}<br>${(t.reportDefinitions || []).length} report definitions<br><span class="muted">${P().fmtDate(t.testedAt)}</span></div>`;
   }
 
   function testResult(t) {
@@ -525,6 +557,21 @@
     };
     const cvInputs = [...document.querySelectorAll(`[id^="s_${code}_cv_"]`)];
     if (cvInputs.length) payload.catalogValues = Object.fromEntries(cvInputs.map((e) => [e.dataset.cv, e.value.trim()]));
+    if (document.getElementById(id('ariaEp'))) {
+      const defs = ariaDefs[code] || {};
+      payload.aria = {
+        enabled: val(id('ariaEn')), endpoint: val(id('ariaEp')), authSource: val(id('ariaAs')) || 'local',
+        invalidCertificateAction: val(id('ariaCert')), objectUrlTemplate: val(id('ariaUrl')),
+        reports: [...document.querySelectorAll(`[data-ariarep="${code}"]:checked`)].map((e) => {
+          const d = defs[e.value] || { id: e.value, name: e.value, subject: [] }; return { id: d.id, name: d.name, subject: d.subject || [] };
+        })
+      };
+      const au = val(id('ariaUser')), ap = document.getElementById(id('ariaPw')).value;
+      if (ap) {
+        if (!au) { P().toast('Enter the Aria Operations account.'); return false; }
+        payload.ariaUsername = au; payload.ariaPassword = ap;
+      }
+    }
     const user = val(id('user')), pw = document.getElementById(id('pw')).value;
     if (pw) {
       if (!user) { P().toast('Enter the service account (e.g. svc-portal@vsphere.local).'); return false; }
@@ -533,7 +580,7 @@
     try {
       await P().api('/api/admin/sites', { method: 'POST', body: payload });
       P().toast(`${code} saved${pw ? ' (credential stored)' : ''}.`);
-      if (keepOpen) { document.getElementById(id('pw')).value = ''; return true; }
+      if (keepOpen) { document.getElementById(id('pw')).value = ''; const ap = document.getElementById(id('ariaPw')); if (ap) ap.value = ''; return true; }
       vcenters(body); return true;
     }
     catch (e) { P().toast(e.message, 6000); return false; }
@@ -551,6 +598,20 @@
     try { const r = await P().api(`/api/admin/sites/${encodeURIComponent(code)}/test`, { method: 'POST' }); res.innerHTML = testResult(r); if (r.ok) P().toast(`${code}: connected. Inventory refresh started.`); }
     catch (e) { res.innerHTML = `<div class="alert alert-err" style="margin:12px 0 0">${esc(e.message)}</div>`; }
     finally { btn.disabled = false; btn.textContent = t; }
+  }
+
+  async function testAria(body, code, btn) {
+    // Save first (endpoint, account, enabled flag) so the test runs with what is on screen.
+    btn.disabled = true;
+    const ok = await saveSite(body, code, true);
+    if (!ok) { btn.disabled = false; return; }
+    const t = btn.textContent; btn.textContent = 'Testing (up to 90 s)...';
+    try {
+      const r = await P().api(`/api/admin/sites/${encodeURIComponent(code)}/aria/test`, { method: 'POST' });
+      P().toast(r.ok ? `${code}: Aria Operations connected, ${(r.reportDefinitions || []).length} report definitions.` : `${code}: Aria Operations test failed.`, 6000);
+      vcenters(body);
+    }
+    catch (e) { const res = document.getElementById(`s_${code}_ariaRes`); if (res) res.innerHTML = `<div class="alert alert-err" style="margin:10px 0 0">${esc(e.message)}</div>`; btn.disabled = false; btn.textContent = t; }
   }
 
   /* =====================================================================================================

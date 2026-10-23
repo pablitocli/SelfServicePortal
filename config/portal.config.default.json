@@ -303,6 +303,19 @@
         "linuxTemplate": "TBD-TPL-ALMALINUX",
         "linuxCustomizationSpec": "TBD-ALMALINUX-BASE",
         "sqlServerMediaPath": "TBD-\\\\fileserver\\software\\SQL2022"
+      },
+      "aria": {
+        "enabled": false,
+        "endpoint": "",
+        "authSource": "local",
+        "credential": {
+          "type": "Vault",
+          "id": "aria-dc1"
+        },
+        "invalidCertificateAction": "Ignore",
+        "useSystemProxy": false,
+        "objectUrlTemplate": "",
+        "reports": []
       }
     },
     {
@@ -336,6 +349,19 @@
         "linuxTemplate": "TBD-TPL-ALMALINUX",
         "linuxCustomizationSpec": "TBD-ALMALINUX-BASE",
         "sqlServerMediaPath": "TBD-\\\\fileserver\\software\\SQL2022"
+      },
+      "aria": {
+        "enabled": false,
+        "endpoint": "",
+        "authSource": "local",
+        "credential": {
+          "type": "Vault",
+          "id": "aria-dc2"
+        },
+        "invalidCertificateAction": "Ignore",
+        "useSystemProxy": false,
+        "objectUrlTemplate": "",
+        "reports": []
       }
     }
   ],
@@ -466,6 +492,18 @@
     },
     "reports": {
       "retentionDays": 180
+    },
+    "troubleshooting": {
+      "timeZone": "UTC",
+      "cpuReadyWarnPercent": 5,
+      "cpuReadyCriticalPercent": 10,
+      "coStopWarnPercent": 3,
+      "diskLatencyWarnMs": 20,
+      "diskLatencyCriticalMs": 30,
+      "guestDiskFreeWarnPercent": 20,
+      "guestDiskFreeCriticalPercent": 10,
+      "guestMemoryWarnPercent": 90,
+      "maxEvents": 2000
     }
   }
 }
