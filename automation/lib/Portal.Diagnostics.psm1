@@ -449,7 +449,7 @@ function Get-PortalTroubleshootFindings {
     $th = { param($k, $d) $v = Get-DiagVal $Thresholds $k $null; if ($null -eq $v -or "$v" -eq '') { $d } else { [double]$v } }
     $readyW = & $th 'cpuReadyWarnPercent' 5; $readyC = & $th 'cpuReadyCriticalPercent' 10; $coW = & $th 'coStopWarnPercent' 3
     $latW = & $th 'diskLatencyWarnMs' 20; $latC = & $th 'diskLatencyCriticalMs' 30
-    $dfW = & $th 'guestDiskFreeWarnPercent' 20; $dfC = & $th 'guestDiskFreeCriticalPercent' 10; $gmW = & $th 'guestMemoryWarnPercent' 90
+    $gdiskWarn = & $th 'guestDiskFreeWarnPercent' 20; $gdiskCrit = & $th 'guestDiskFreeCriticalPercent' 10; $gmW = & $th 'guestMemoryWarnPercent' 90
     $list = [System.Collections.Generic.List[object]]::new()
     $add = {
         param($sev, $title, $evidence, [string[]] $sources, [string] $key)
@@ -509,7 +509,7 @@ function Get-PortalTroubleshootFindings {
     if ($Guest) {
         foreach ($d in @(Get-DiagVal $Guest 'disks' @())) {
             $fp = [double](Get-DiagVal $d 'freePercent' 100)
-            if ($fp -lt $dfW) { & $add $(if ($fp -lt $dfC) { 'CRITICAL' } else { 'WARN' }) "Guest disk $(Get-DiagVal $d 'name' '') low on space ($fp % free)" "$(Get-DiagVal $d 'freeGB' 0) GB free of $(Get-DiagVal $d 'sizeGB' 0) GB." @('Guest OS') "gdisk-$(Get-DiagVal $d 'name' '')" }
+            if ($fp -lt $gdiskWarn) { & $add $(if ($fp -lt $gdiskCrit) { 'CRITICAL' } else { 'WARN' }) "Guest disk $(Get-DiagVal $d 'name' '') low on space ($fp % free)" "$(Get-DiagVal $d 'freeGB' 0) GB free of $(Get-DiagVal $d 'sizeGB' 0) GB." @('Guest OS') "gdisk-$(Get-DiagVal $d 'name' '')" }
         }
         $mp = [double](Get-DiagVal $Guest 'memoryUsedPercent' 0)
         if ($mp -ge $gmW) {

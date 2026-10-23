@@ -49,7 +49,7 @@ function Reset-Fake {
     $global:BbNoGateway = @(); $global:BbFailDisk = @(); $global:BbNoCustomization = @()
 }
 Reset-Fake
-function global:Get-Cluster { param($Name, $Server, [Parameter(ValueFromRemainingArguments)] $Rest) if ($Name -like 'CL-*') { [pscustomobject]@{ Name = $Name } } }
+function global:Get-Cluster { param($Name, $Server, [Parameter(ValueFromRemainingArguments)] $Rest) if ($Name -and $Name -ne 'CL-OTHER' -and $Name -notlike '*NOPE*') { [pscustomobject]@{ Name = $Name } } }
 function global:Get-Datastore { param($Name, $RelatedObject, $Server, [Parameter(ValueFromRemainingArguments)] $Rest) if ($Name -eq 'DS-APP-01' -or $RelatedObject) { [pscustomobject]@{ Name = 'DS-APP-01'; FreeSpaceGB = 4000 } } }
 function global:Get-DatastoreCluster { param($Name, $Server, [Parameter(ValueFromRemainingArguments)] $Rest) }
 function global:Get-Template { param($Name, $Server, [Parameter(ValueFromRemainingArguments)] $Rest) if ($Name -eq 'TPL-WIN2025') { [pscustomobject]@{ Name = $Name } } }

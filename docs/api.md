@@ -120,6 +120,7 @@ Legend: **P** = public, **S** = signed-in (any role), **S\*** = signed-in and *r
 | GET | `/api/admin/sites` | `connections.manage` | |
 | POST | `/api/admin/sites` | `connections.manage` | |
 | POST | `/api/admin/sites/:code/test` | `connections.manage` | |
+| POST | `/api/admin/sites/:code/aria/test` | `connections.manage` | Tests the Aria Operations connection of the site (out-of-process, service identity) and syncs its report definitions into `data/inventory/<SITE>.aria.json`. `POST /api/admin/sites` also accepts `aria { enabled, endpoint, authSource, invalidCertificateAction, useSystemProxy, objectUrlTemplate, reports[] }`, `ariaUsername` and `ariaPassword` (re-authentication required). |
 | GET | `/api/admin/clouds` | `connections.manage` | |
 | POST | `/api/admin/clouds` | `connections.manage` | |
 | POST | `/api/admin/clouds/:provider/test` | `connections.manage` | |

@@ -21,6 +21,7 @@ This document is the agreed development plan for the Self-Service Portal. Phase 
 | 1 | Credential vault, identity providers, user security, Linux/OVA, documentation | **Done** (1.0.0) |
 | 2 | Platform enablers: scheduling, reports, software repository, dry-run, orchestration, connectors | **Partly done** (1.1.0): reports per request, software repository and baselines (Admin > Data files), dry run per item, blueprint orchestration with rollback, backup connector templates. Planned: E1 scheduling, report history. |
 | 3 | 21 new catalog items | **Done** (1.1.0), 25 items in total. Validated offline against stubs; validate each in a lab site before production. |
+| 3b | Troubleshooting, Aria Operations, batch build, day-2 and admin items from field scripts | **Done** (1.2.0), 48 items in total. Validated offline against stubs; validate each in a lab site before production. |
 | 4 | API tokens, notifications, HA, key rotation, external vaults | Candidates |
 
 ## 2. Phase 1: Foundation and security (released)
@@ -221,6 +222,9 @@ These are candidates for later releases. They are not committed and have no sche
 | Multi-node / HA deployment | More than one portal node, for availability. |
 | Master-key rotation | Rotate the vault master key and re-encrypt the entries. |
 | External vault backends | HashiCorp Vault, Azure Key Vault, AWS Secrets Manager, CyberArk, Delinea. |
+| Citrix VM deploy | Citrix-specific build (machine catalog, VDA checks) on top of the batch build *Citrix* profile. |
+| Scheduled Aria reports | Run Aria report items on a schedule and keep the history (depends on E1 scheduling). |
+| Orphaned disk quarantine | Approval-based rename / move of orphaned disks with a dry run and a re-check before deletion. |
 
 ## 6. Cross-cutting: re-authentication for sensitive items
 

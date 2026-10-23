@@ -259,6 +259,8 @@ Roles are described in [identity.md](identity.md#5-roles-and-teams). `Admin` imp
 | Recovery codes | SHA-256 hash only |
 | Session secret, vault key file path | Environment (`SSP_SESSION_SECRET`, `SSP_VAULT_KEYFILE`). On Linux, in `/etc/ssp/portal.env` (`root:ssp 0640`). |
 | Job logs | Decrypted secrets are replaced by `********` in `logs/jobs/<id>.log` (see the limits in [vault.md](vault.md#7-job-log-masking)) |
+| Aria Operations tokens | Acquired per job, kept in memory, added to the job's masking list and released when the job ends |
+| Secrets inside guests | Never written to a file or a command line by the shipped items: a password needed in a guest (domain join, DSRM, local account) is embedded only in the sensitive script of that step, sent through VMware Tools, and never logged. The batch build leaves no bootstrap file behind (checked by its validation). |
 
 ## Production hardening checklist
 

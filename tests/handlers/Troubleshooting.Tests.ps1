@@ -96,6 +96,9 @@ function New-TsAria {
         'GET /resources?name=*'                                    = @{ resourceList = @() }
     })
 }
+# Incident times in these tests are UTC, whatever operations.troubleshooting.timeZone the edition ships.
+function New-TsContext { param([string] $ItemId = 'vm-troubleshoot', $Aria) $c = New-TestContext -ItemId $ItemId -Aria $Aria
+    $ops = [ordered]@{}; foreach ($k in $c.Operations.Keys) { $ops[$k] = $c.Operations[$k] }; $ops['troubleshooting'] = [ordered]@{ timeZone = 'UTC' }; $c.Operations = $ops; $c }
 $guestCred = [pscredential]::new('CORP\svc-diag', (ConvertTo-SecureString 'Gu3stDiagP@ss' -AsPlainText -Force))
 #endregion
 
@@ -147,7 +150,7 @@ Assert-Test -Name 'Findings: quiet VM gives no finding' -Condition ($f.Count -eq
 #endregion
 
 #region vm-troubleshoot -----------------------------------------------------------------------------------------
-$ctx = New-TestContext -ItemId 'vm-troubleshoot' -Aria (New-TsAria)
+$ctx = New-TsContext -ItemId 'vm-troubleshoot' -Aria (New-TsAria)
 $global:TsCalls.Clear()
 $r = Invoke-TestHandler -Handler 'Get-VmTroubleshooting.ps1' -Parameters @{ Site = 'DC1'; VMName = 'APP-SQL01'; WindowMode = 'Incident'; IncidentTime = $incidentText; MinutesBefore = 60; MinutesAfter = 30
     IncludeHost = $true; UseGuest = $true; GuestCredential = $guestCred; UseAria = $true; AriaReport = 'def-vm-troubleshooting'; Symptom = 'Slowness'; Context = $ctx }
@@ -167,30 +170,30 @@ Assert-Test -Name 'Troubleshoot: evidence pack holds raw samples and guest data'
 Assert-Test -Name 'Troubleshoot: guest password never logged' -Condition (-not ($r.Log -match 'Gu3stDiagP@ss'))
 Assert-Test -Name 'Troubleshoot: host events read too' -Condition ($global:TsCalls -contains 'Get-VIEvent:esx-app-07.test.local')
 
-$ctx = New-TestContext -ItemId 'vm-troubleshoot'
+$ctx = New-TsContext -ItemId 'vm-troubleshoot'
 $r = Invoke-TestHandler -Handler 'Get-VmTroubleshooting.ps1' -Parameters @{ Site = 'DC1'; VMName = 'APP-SQL01'; WindowMode = 'Last24h'; UseGuest = $false; UseAria = $true; Context = $ctx }
 Assert-Test -Name 'Troubleshoot: works without Aria (reported as not available)' -Condition ($null -eq $r.Error -and ($r.Result.Sources -match 'Aria Operations: NOT AVAILABLE') -and $r.Result.NextSteps -match 'Include guest OS') -Detail $r.Error
 
-$r = Invoke-TestHandler -Handler 'Get-VmTroubleshooting.ps1' -Parameters @{ Site = 'DC1'; VMName = 'APP-SQL01'; UseGuest = $true; Context = (New-TestContext) }
+$r = Invoke-TestHandler -Handler 'Get-VmTroubleshooting.ps1' -Parameters @{ Site = 'DC1'; VMName = 'APP-SQL01'; UseGuest = $true; Context = (New-TsContext) }
 Assert-Test -Name 'Troubleshoot: guest without credential refused' -Condition ($r.Error -match 'guest credential') -Detail $r.Error
 
 $global:TsGuestThrow = 'A specified parameter was not correct: guest credential'
-$r = Invoke-TestHandler -Handler 'Get-VmTroubleshooting.ps1' -Parameters @{ Site = 'DC1'; VMName = 'APP-SQL01'; UseGuest = $true; GuestCredential = $guestCred; UseAria = $false; Context = (New-TestContext) }
+$r = Invoke-TestHandler -Handler 'Get-VmTroubleshooting.ps1' -Parameters @{ Site = 'DC1'; VMName = 'APP-SQL01'; UseGuest = $true; GuestCredential = $guestCred; UseAria = $false; Context = (New-TsContext) }
 $global:TsGuestThrow = $null
 Assert-Test -Name 'Troubleshoot: guest failure does not stop the diagnosis' -Condition ($null -eq $r.Error -and ($r.Result.Sources -match 'Guest OS: FAILED') -and -not ($r.Result.Sources -match 'Gu3stDiagP@ss')) -Detail "$($r.Error) $($r.Result.Sources -join ' | ')"
 
-$r = Invoke-TestHandler -Handler 'Get-VmTroubleshooting.ps1' -Parameters @{ Site = 'DC1'; VMName = 'NOPE'; Context = (New-TestContext) }
+$r = Invoke-TestHandler -Handler 'Get-VmTroubleshooting.ps1' -Parameters @{ Site = 'DC1'; VMName = 'NOPE'; Context = (New-TsContext) }
 Assert-Test -Name 'Troubleshoot: unknown VM fails clearly' -Condition ($r.Error -match "VM 'NOPE' was not found") -Detail $r.Error
 #endregion
 
 #region vm-incident-evidence -----------------------------------------------------------------------------------
-$ctx = New-TestContext -ItemId 'vm-incident-evidence' -Aria (New-TsAria)
+$ctx = New-TsContext -ItemId 'vm-incident-evidence' -Aria (New-TsAria)
 $r = Invoke-TestHandler -Handler 'Export-VmIncidentEvidence.ps1' -Parameters @{ Site = 'DC1'; VMName = 'APP-SQL01'; IncidentTime = $incidentText; MinutesBefore = 30; MinutesAfter = 30; IncludeHost = $true; UseAria = $true; Reference = 'INC0012345'; Context = $ctx }
 Assert-Test -Name 'Evidence: completed with Aria alerts and events' -Condition ($null -eq $r.Error -and $r.Result.AriaAlerts -eq 1 -and $r.Result.Events -ge 3 -and $r.Result.AriaLink) -Detail $r.Error
 $zip = [IO.Compression.ZipFile]::OpenRead((Join-Path $ctx.ReportDir 'evidence-APP-SQL01.zip')); $entries = @($zip.Entries.Name); $zip.Dispose()
 Assert-Test -Name 'Evidence: pack has Aria stats per object, vSphere samples, events CSV' -Condition (($entries -like 'aria-stats-VM_APP-SQL01.csv') -and ($entries -like 'aria-stats-Host_esx-app-07*') -and ($entries -contains 'vsphere-samples.csv') -and ($entries -like '*events*')) -Detail ($entries -join ', ')
 Assert-Test -Name 'Evidence: Aria stats queried with MAX rollup' -Condition ($global:TsStatBody.rollUpType -eq 'MAX')
-$r = Invoke-TestHandler -Handler 'Export-VmIncidentEvidence.ps1' -Parameters @{ Site = 'DC1'; VMName = 'APP-SQL01'; IncidentTime = 'yesterday'; Context = (New-TestContext) }
+$r = Invoke-TestHandler -Handler 'Export-VmIncidentEvidence.ps1' -Parameters @{ Site = 'DC1'; VMName = 'APP-SQL01'; IncidentTime = 'yesterday'; Context = (New-TsContext) }
 Assert-Test -Name 'Evidence: invalid incident time refused' -Condition ($r.Error -match 'not valid') -Detail $r.Error
 #endregion
 
@@ -205,7 +208,7 @@ $r = Invoke-TestHandler -Handler 'Invoke-AriaOperationsReport.ps1' -Parameters @
 Assert-Test -Name 'Aria report: definition not offered for the site refused' -Condition ($r.Error -match 'not offered') -Detail $r.Error
 $r = Invoke-TestHandler -Handler 'Invoke-AriaOperationsReport.ps1' -Parameters @{ Site = 'DC1'; ObjectType = 'Datastore'; DatastoreName = 'DS-NOPE'; ReportDefinition = 'def-cap'; Context = $ctx }
 Assert-Test -Name 'Aria report: object not in Aria fails clearly' -Condition ($r.Error -match 'not found in Aria') -Detail $r.Error
-$r = Invoke-TestHandler -Handler 'Invoke-AriaOperationsReport.ps1' -Parameters @{ Site = 'DC1'; ObjectType = 'VirtualMachine'; VMName = 'APP-SQL01'; ReportDefinition = 'def-cap'; Context = (New-TestContext) }
+$r = Invoke-TestHandler -Handler 'Invoke-AriaOperationsReport.ps1' -Parameters @{ Site = 'DC1'; ObjectType = 'VirtualMachine'; VMName = 'APP-SQL01'; ReportDefinition = 'def-cap'; Context = (New-TsContext) }
 Assert-Test -Name 'Aria report: refused without Aria connection' -Condition ($r.Error -match 'not available') -Detail $r.Error
 #endregion
 

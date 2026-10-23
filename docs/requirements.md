@@ -102,7 +102,8 @@ Administrative roles can additionally be restricted to management networks with 
 | Destination | Port | Used by | Notes |
 |---|---|---|---|
 | vCenter Server(s) | 443/tcp | Job runners, inventory refresh, *Test connection* (PowerCLI) | All vSphere work goes through vCenter. PowerCLI is forced to **NoProxy** unless the site sets `useSystemProxy: true`. |
-| ESXi hosts | 443/tcp, 902/tcp | **Not used** by the shipped handlers | No handler uses guest operations (`Invoke-VMScript`, `Copy-VMGuestFile`), consoles, datastore file transfers or OVF import. Open them only if you add a custom handler that needs them. |
+| ESXi hosts | 443/tcp | Guest operations (`Invoke-VMScript`): software installation items, VM troubleshooting (guest OS), local groups, data disks, batch build, DC promotion | PowerCLI transfers the guest script output directly with the ESXi host that runs the VM. Not needed when none of these items is enabled. 902/tcp (console, OVF) is not used. |
+| Aria Operations / VCF Operations (one per site, optional) | 443/tcp | VM troubleshooting, incident evidence, Aria report, *Test Aria and sync reports* | REST `suite-api` with a token per job. Reached directly unless the site's `aria.useSystemProxy` is `true`. |
 | New VM addresses (static IP requests) | ICMP echo | `New-VsphereVM.ps1` pre-flight | Before cloning, the handler pings the requested static IP and refuses to continue if it answers. If ICMP is blocked, this duplicate-address check silently passes. |
 | Domain controllers / LDAP servers | 636/tcp (LDAPS), 389/tcp (StartTLS; `negotiate` on Windows) | Sign-in, group resolution, Admin > Identity tests | 3268/3269 only if you point a provider at the Global Catalog. Unencrypted LDAP (`security: none`) is refused unless `allowInsecure` is set (lab only). |
 | DNS servers | 53/udp+tcp | Everything | vCenter, LDAP and cloud endpoint names must resolve. |
@@ -138,6 +139,8 @@ Linux and the OVA run `chrony` (`ssp.ntp` OVF property on the appliance); on Win
 | Portal service account | OS | Runs the web server and every job / inventory / test process. Linux: `ssp` (created by `install.sh`). Windows: a gMSA or dedicated domain account (see [installation-windows.md](installation-windows.md)). |
 | vCenter service account (one per site) | Portal vault, entry `vcenter-<site>`, system scope | All vSphere handlers, inventory, *Test connection* |
 | Directory bind account (optional) | Portal vault, system scope; referenced by the provider's `bindCredential` | Only `bindMode: search` providers (and the *Test connection* user lookup) |
+| Aria Operations account (one per site, optional) | Portal vault, entry `aria-<site>`, system scope | Troubleshooting, evidence and report items (read-only role + report generation, see 8.5) |
+| Guest / directory accounts used by items | Portal vault, chosen in the request (tags below) | Guest operations, domain join, AD moves, DC promotion |
 | AWS identity | Portal vault entry `cloud-aws` (access key) or the default credential chain | AWS items |
 | Azure identity | Portal vault entry `cloud-azure` (service principal secret) or managed identity | Azure items |
 
@@ -179,7 +182,23 @@ The shipped handlers connect to vCenter through PowerCLI with the site's service
 | Cloud cost / power (AWS) | `ec2:DescribeVolumes`, `ec2:DescribeAddresses`, `ec2:DescribeInstances`, `ec2:DescribeSnapshots`, `ec2:StartInstances`, `ec2:StopInstances` (restrict with a tag condition on `PowerSchedule`) |
 | Cloud cost / power (Azure) | `Microsoft.Compute/disks/read`, `snapshots/read`, `virtualMachines/read`, `virtualMachines/instanceView/read`, `Microsoft.Network/publicIPAddresses/read`, `virtualMachines/start/action`, `virtualMachines/deallocate/action` |
 
-Not used by any shipped handler: content library, snapshot revert, console interaction, creating persistent customization specifications.
+**Items added in 1.2.0.**
+
+| Item(s) | Additional privileges |
+|---|---|
+| VM troubleshooting, Incident evidence export | Read-only (performance, events). With *Include guest OS*: `VirtualMachine.GuestOperations.Execute`, `.Query` and a guest account tagged `guest-windows` / `guest-linux`. |
+| Aria Operations report | None in vCenter (Aria account, see 8.5). |
+| DRS rule compliance, Before / after change metrics | Read-only. *iSCSI MTU now* runs read-only esxcli calls (`Host.Config.Network` is not needed; `Host.Cim.CimInteraction` / read access is enough on most versions). |
+| Orphaned VMDK assessment | `Datastore.Browse` (Browse datastore) on every datastore of every enabled site. |
+| Local admins & RDP users, Initialize data disks | `VirtualMachine.GuestOperations.Execute`, `.Modify`, `.Query`; guest account tagged `guest-windows`. |
+| Move VMs to folder | `VirtualMachine.Inventory.Move` (on the VM and the destination folder). |
+| Move computer to OU | None in vCenter. An AD identity provider (Admin > Identity) with a bind credential (for the OU list) and a vault account tagged `ad-admin` allowed to move computer objects between the OUs. |
+| VM power (batch) | Same as `vm-power`. |
+| Windows VM build (batch) | Union of `New-VsphereVM.ps1` and the guest operations privileges; `VirtualMachine.Config.DiskExtend` (grow the primary disk). Vault accounts tagged `guest-windows` (template administrator), `domain-join`, optional `local-account`. |
+| Promote domain controller | `VirtualMachine.State.CreateSnapshot`, `VirtualMachine.Interact.Reset` (guest restart), guest operations; vault accounts tagged `domain-admin` and `dsrm`. |
+| Copy customization spec | `VirtualMachine.Provisioning.ReadCustSpecs` on the source vCenter; `VirtualMachine.Provisioning.ModifyCustSpecs` (Modify customization specification) on the target vCenter. |
+
+Not used by any shipped handler: content library, snapshot revert, console interaction. Only *Copy customization spec* creates persistent customization specifications.
 
 **Combined role "SSP-Portal"** (VM build and day-2 items of 1.0):
 
@@ -196,6 +215,15 @@ Not used by any shipped handler: content library, snapshot revert, console inter
 | Virtual machine > Snapshot management | Create snapshot |
 
 Assignment: assign the role to the service account on the vCenter root (propagate) for simplicity, or, for least privilege, on the datacenters/clusters/datastores/networks/folders listed in the site (`workloadClusters`, the folders and port groups offered to requesters) plus the templates, and grant *Read customization specifications* and the *Global* privileges on the vCenter root object. Use an SSO account (`svc-portal@vsphere.local`) or a directory account (`DOMAIN\svc-portal`); the connection error message suggests both formats.
+
+### 8.5 Aria Operations (VCF Operations) account
+
+One account per site, stored in the vault from Admin > vCenter connections > Aria Operations. The portal acquires a token per job (`POST /suite-api/api/auth/token/acquire`) and releases it at the end; nothing is written in Aria except the report instances the *Aria Operations report* item generates.
+
+- Role: a read-only role on the vCenter adapter objects the portal must see, plus the report privileges (*Dashboards > Reports: generate, download*). Generating reports through the REST API needs the report definition to apply to the object type; definitions are synced and offered per site by the Admin.
+- Auth source: `local`, or the name of the AD / vIDM / VMware Identity Broker source configured in Aria (the account is then `user@domain` as Aria expects).
+- Certificates: `Ignore` accepts self-signed certificates; use `Fail` once the Aria CA is trusted by the portal server.
+- The object link shown in results is built from `aria.objectUrlTemplate` (optional), because the UI path differs between Aria Operations 8.x and VCF Operations 9.
 
 ### 8.2 Active Directory / LDAP
 
@@ -372,12 +400,17 @@ The repository contains **no organisation-specific data**: no site codes, vCente
 | 6 | `catalog.teamRoles` | Admin > Customization > Teams | Which of your teams owns the shipped datacenter items (`@datacenter`) and cloud items (`@cloud`) | All shipped items |
 | 7 | `sites[]` | Admin > vCenter connections | Site code and name, vCenter FQDN, certificate policy, App / DB workload clusters, VM folder, DNS domain and servers, port-group filter | All vSphere items |
 | 8 | `sites[].catalogValues` (keys declared in `catalog.siteValues`) | Admin > vCenter connections > Catalog values | Per site: `windowsTemplate`, `windowsCustomizationSpec`, `linuxTemplate`, `linuxCustomizationSpec`, `sqlServerMediaPath` | Windows / AlmaLinux VM, SQL Server, three-tier blueprint |
-| 9 | Vault entries | Admin > Vault, Admin > vCenter connections | `vcenter-<site>` service accounts; guest credentials tagged `guest-windows`, `guest-linux`, `ad-join`, `sql-service`; LDAP bind; cloud keys | Jobs, guest installs, identity |
+| 9 | Vault entries | Admin > Vault, Admin > vCenter connections | `vcenter-<site>` service accounts; `aria-<site>` Aria accounts; guest credentials tagged `guest-windows`, `guest-linux`, `ad-join`, `sql-service`; 1.2 items: `domain-join`, `domain-admin`, `dsrm`, `ad-admin`, `local-account`; LDAP bind; cloud keys | Jobs, guest installs, identity |
 | 10 | `clouds.aws`, `clouds.azure` | Admin > Cloud connections | Account / subscription, region, network, images, tags; leave disabled until defined | Cloud items |
 | 11 | `operations` | `config/portal.config.json` | Quarantine folder and days, rename prefix, snapshot and test-clone policies, report thresholds, power-schedule tag | Operational items |
 | 12 | Data files: `software.json`, `version-baseline.json`, `hardening-baseline.json`, `backup.json` | Admin > Data files | Agent installers and checks (set to *Approved*), approved builds and advisories, hardening checks of your security standard, backup policies / tag category | Agent baseline, compliance reports, backup policy |
 | 13 | `security` | Admin > Security | Session timeouts, password policy, MFA, admin networks, trusted proxies | Security |
 | 14 | `vmNotes` | Admin > Customization > VM notes | Fields written into the VM notes of new builds (owner, cost centre, ticket...) | Build items |
+| 15 | `sites[].aria` | Admin > vCenter connections > Aria Operations | Aria Operations FQDN, auth source, account (vault), certificate policy, optional object link template; *Test Aria and sync reports*, then tick the report definitions offered in forms | VM troubleshooting, incident evidence, Aria report |
+| 16 | `operations.troubleshooting` | `config/portal.config.json` | **Time zone** of incident / change times typed in forms (`timeZone`, Windows or IANA id, default `UTC`) and the diagnosis thresholds | VM troubleshooting, incident evidence, change metrics |
+| 17 | `operations.orphanedDisks`, `operations.batchBuild` | `config/portal.config.json` | Path exclusions of the orphaned-disk scan; batch build limits (VMs per request, stuck / update timeouts) | Orphaned VMDK, Windows VM build (batch) |
+| 18 | Data file `drs-rules.json` | Admin > Data files > Expected DRS rules | Expected VM-VM rules per site / cluster, large-VM thresholds, VM name pattern, decommission candidates | DRS rule compliance |
+| 19 | AD identity provider with bind credential | Admin > Identity | An enabled provider of type Active Directory whose bind credential can list OUs | Move computer to OU |
 
 **Adding your own per-site value.** Declare it once in `catalog.siteValues` (`key`, `label`, `help`, `usedBy`, `default`), reference it from an item as `"@site:<key>"` in `execution.fixedParameters`, and fill it per site in Admin > vCenter connections. The catalog validator rejects references to undeclared keys.
 

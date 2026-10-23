@@ -26,7 +26,7 @@ $global:OrRules = @(
     [pscustomobject]@{ Name = 'AA-SQL-RPT'; Enabled = $true; KeepTogether = $false; VMIds = @('VirtualMachine-SQL-RPT-01', 'VirtualMachine-SQL-RPT-02') }
     [pscustomobject]@{ Name = 'KT-APP'; Enabled = $false; KeepTogether = $true; VMIds = @('VirtualMachine-APP-01', 'VirtualMachine-APP-02') }
 )
-function global:Get-Cluster { param($Name, $Server, [Parameter(ValueFromRemainingArguments)] $Rest) if ($Name -like 'CL-*') { [pscustomobject]@{ Name = $Name; DrsAutomationLevel = 'FullyAutomated' } } }
+function global:Get-Cluster { param($Name, $Server, [Parameter(ValueFromRemainingArguments)] $Rest) if ($Name -and $Name -ne 'CL-OTHER' -and $Name -notlike '*NOPE*') { [pscustomobject]@{ Name = $Name; DrsAutomationLevel = 'FullyAutomated' } } }
 function global:Get-VMHost { param($Location, $Name, $Server, [Parameter(ValueFromRemainingArguments)] $Rest) $global:OrHosts }
 function global:Get-VM { param($Name, $Location, $Server, [Parameter(ValueFromRemainingArguments)] $Rest) if ($Name) { $global:OrVms | Where-Object Name -eq $Name } else { $global:OrVms } }
 function global:Get-DrsRule { param($Cluster, $Server, [Parameter(ValueFromRemainingArguments)] $Rest) $global:OrRules }

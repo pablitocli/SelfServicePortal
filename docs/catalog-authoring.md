@@ -96,6 +96,7 @@ Items are JSON files in `catalog/items/`. Start from `catalog/_templates/new-ite
 | `requiresVCenter` | `true` | When `true`, the runner connects to the vCenter of the site selected in `siteInput` and passes the session as `Context.VIServer`. The site input must exist. |
 | `siteInput` | `Site` | Name of the input that selects the site/vCenter. Inventory lookups depend on it. |
 | `cloud` | none | `aws` or `azure`. The runner authenticates with Admin > Cloud connections and passes the session as `Context.Cloud`. Cloud items must set `requiresVCenter: false`. |
+| `aria` | none | `required` or `optional`. The runner opens an Aria Operations session for the site (token per job, released at the end) and passes it as `Context.Aria`. `required` fails the job when the site has no Aria connection; `optional` continues with `Context.Aria = $null` and a warning. An input named `UseAria` (boolean) set to false skips the connection for that request. |
 | `timeoutMinutes` | `jobs.defaultTimeoutMinutes` (60) | The dispatcher kills the runner process after this time and marks the request `Failed`. Schema range: 1-1440. |
 | `fixedParameters` | `{}` | Handler parameters that the requester never sees, for example template or customization spec. A value can be a scalar, a **per-site value** `"@site:<key>"` (read from `sites[].catalogValues.<key>` of the selected site; the key must be declared in `catalog.siteValues`, see [configuration.md](configuration.md#316-catalog)), or a per-site map `{ "DC1": "TPL-A", "*": "TPL-DEFAULT" }` (`*` is the fallback). Prefer `@site:` for anything shared or published: the item then contains no site codes or names. The runner refuses to start a job while a resolved value is empty or starts with `TBD-`. Fixed parameters also count as form values in lookups, so a fixed `Workload` filters the `datastores` lookup. |
 | `credentials` | `{}` | Fixed vault bindings: `{ "HandlerParameter": "vault-entry-id" }`. At run time the runner decrypts the entry and passes a `[pscredential]`. The vault id must match `^[a-z0-9][a-z0-9._-]{1,62}$`, and the entry's scope must allow this item. See [vault.md](vault.md). |
@@ -184,6 +185,9 @@ Inventory sources read the **inventory cache** (`data/inventory/<SITE>.json`), w
 | `awsInstanceTypes` | AWS allowed instance types | type / type | AWS connection must be enabled. | none |
 | `azureSubnets` | Azure subnets | name / `name (vnet)` | Azure connection must be enabled. | none |
 | `azureVmSizes` | Azure allowed VM sizes | size / size | Azure connection must be enabled. | none |
+| `ariaReports` | `sites[].aria.reports` (Admin > vCenter connections > Aria Operations) | definition id / name | `source.subject` keeps definitions whose subject includes that resource kind (e.g. `VirtualMachine`). Fails with a clear message when Aria is not enabled for the site. | site input (mandatory) |
+| `adDirectories` | enabled identity providers of flavor `ad` (Admin > Identity) | provider id / `name (domain)` | None. | none |
+| `adOus` | the chosen directory (read with the provider bind credential, cached 15 minutes in `data/inventory/ad-<id>-ous.json`) | OU distinguished name / `Servers / SQL / Prod` | `source.directoryInput` names the directory input (default `Directory`). | the directory input |
 
 Common rules:
 
@@ -256,7 +260,8 @@ A handler is a PowerShell 7 script. The runner (`automation/Invoke-CatalogJob.ps
 | `ItemId` | Catalog item id. |
 | `Approval` | `@{ required; decision; decidedBy; decidedAt; comment }`. |
 | `Authorization` | Re-authentication evidence when the item requires it: `@{ by; at; ip; reauthenticated }`. `$null` otherwise. |
-| `Operations` | The `operations` section of the configuration (storage, decommission, snapshots, test clones, right-sizing, certificates, capacity, power schedules, reports). |
+| `Operations` | The `operations` section of the configuration (storage, decommission, snapshots, test clones, right-sizing, certificates, capacity, power schedules, reports, troubleshooting, orphanedDisks, batchBuild). |
+| `Aria` | Aria Operations connection when `execution.aria` is set and the site has one (`Endpoint`, `Version`, `BaseUri`; the token is in the job's secret list and never logged). Use the `Portal.AriaOps` functions. `$null` otherwise. |
 
 #### Libraries available to handlers
 
@@ -266,6 +271,12 @@ A handler is a PowerShell 7 script. The runner (`automation/Invoke-CatalogJob.ps
 | `modules/Portal.Data.psm1` | yes | `Get-PortalDataFile -Name software\|versionBaseline\|hardeningBaseline\|backup`, `Get-PortalSoftwareSet -Id [-Os]` (approved packages + skipped ones). |
 | `modules/Portal.Storage.psm1` | yes | `Enter-PortalStorageLock`, `Exit-PortalStorageLock`, `Get-PortalStorageState`. |
 | `automation/lib/Portal.Guest.psm1` | no (import it from `Context.PortalRoot`) | `Invoke-PortalGuestScript` (VMware Tools guest operations with a reliable exit code and secret masking), `Wait-PortalGuestReady`, `Resolve-PortalGuestVM`, `ConvertTo-PortalGuestLiteral`, `ConvertTo-PortalBashLiteral`. |
+| `automation/lib/Portal.AriaOps.psm1` | yes | `Find-PortalAriaResource`, `Get-PortalAriaRelated` (parents / children), `Get-PortalAriaStatKey`, `Get-PortalAriaStats` (stats/query, MAX rollup for peaks), `Get-PortalAriaLatest`, `Get-PortalAriaBadges`, `Get-PortalAriaAlerts` (window overlap), `Get-PortalAriaReportDefinitions`, `Invoke-PortalAriaReport` (generate, poll, download PDF / CSV), `Get-PortalAriaResourceUrl`, `Invoke-PortalAriaRequest`. A connection object may carry a `Transport` scriptblock (tests). |
+| `automation/lib/Portal.Diagnostics.psm1` | no | Time windows (`Resolve-PortalTimeWindow`, `ConvertTo-PortalUtcTime`), vSphere evidence (counters at the interval vCenter still keeps, events, snapshots), read-only guest diagnostics, Aria evidence and `Get-PortalTroubleshootFindings` (ranked findings with sources). |
+| `automation/lib/Portal.WindowsBuild.psm1` | no | CSV validation and the guest step scripts of the batch build. |
+| `automation/lib/Portal.Directory.psm1` | no | AD over LDAP: `Connect-PortalDirectory` (search, move), filter escaping. |
+
+Reports: `New-PortalReportChart -Title -Series -Markers -Unit -Threshold` adds an inline SVG line chart section (no script). Besides HTML and CSV, a handler may leave `.pdf`, `.zip` and `.json` files in `Context.ReportDir`; the request page lists them for download (other extensions are never served).
 
 The runner disconnects the vCenter and cloud sessions after the handler finishes, whether it succeeded or failed.
 

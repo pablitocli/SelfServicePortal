@@ -247,6 +247,14 @@ One entry per vCenter. Managed in Admin > vCenter connections (requires `connect
 | `defaults.minDatastoreFreePercent` | number | `15` (handlers fall back to 10 when unset) | Free-space floor checked before cloning or adding a disk |
 | `defaults.portgroupFilter` | string (regex) | `.*` | Port groups offered by `portgroups` lookups |
 | `catalogValues` | object | declared keys with their `TBD-` defaults | Per-site values that catalog items read as `@site:<key>` (templates, customization specs, media paths). Only keys declared in `catalog.siteValues` are accepted. Edited in Admin > vCenter connections > Catalog values. |
+| `aria.enabled` | boolean | `false` | Use the Aria Operations / VCF Operations instance of this site (troubleshooting, evidence, reports). Needs `aria.endpoint`. |
+| `aria.endpoint` | string | `""` | Host name (FQDN or IP, optional `:port`) of Aria Operations; `https://` and paths are stripped. |
+| `aria.authSource` | string | `local` | `local` or the name of the authentication source configured in Aria (AD, vIDM). |
+| `aria.credential` | object | `{ type: Vault, id: aria-<code> }` | Vault entry (UsernamePassword, system scope) created when the account is saved in Admin. |
+| `aria.invalidCertificateAction` | string | `Ignore` | `Ignore` (accept self-signed) or `Fail` (require a trusted CA). |
+| `aria.useSystemProxy` | boolean | `false` | Reach Aria through the system proxy instead of directly. |
+| `aria.objectUrlTemplate` | string | `""` | Optional `https://...` link to an object in the Aria UI; `{endpoint}` and `{id}` (resource id) are replaced. Empty = Aria home page. |
+| `aria.reports[]` | array of `{ id, name, subject[] }` | `[]` | Report definitions offered in request forms (lookup `ariaReports`). Filled from *Test Aria and sync reports* in Admin. |
 
 ### 3.12 `clouds`
 
@@ -420,6 +428,17 @@ Settings used by the operational catalog items (added in 1.1.0; upgrades add the
 | `capacity.forecastDays` / `thresholdPercent` | `90` / `85` | Capacity forecast | Forecast horizon and threshold |
 | `powerSchedules.tagKey` / `timeZone` | `PowerSchedule` / `UTC` | Cloud power action, cost report | Tag that selects instances |
 | `reports.retentionDays` | `180` | Reports | Retention of `data/reports` (informational; clean-up is an operations task) |
+| `troubleshooting.timeZone` | `UTC` | VM troubleshooting, incident evidence, change metrics | Time zone of the incident / change times typed in forms (Windows or IANA id, e.g. `America/Chicago`). Reports show UTC. |
+| `troubleshooting.cpuReadyWarnPercent` / `cpuReadyCriticalPercent` / `coStopWarnPercent` | `5` / `10` / `3` | VM troubleshooting | CPU contention thresholds (per vCPU, at the sample peak) |
+| `troubleshooting.diskLatencyWarnMs` / `diskLatencyCriticalMs` | `20` / `30` | VM troubleshooting | Disk latency thresholds |
+| `troubleshooting.guestDiskFreeWarnPercent` / `guestDiskFreeCriticalPercent` / `guestMemoryWarnPercent` | `20` / `10` / `90` | VM troubleshooting | Guest thresholds |
+| `troubleshooting.maxEvents` | `2000` | VM troubleshooting, incident evidence | vCenter events read per object |
+| `orphanedDisks.pathExcludePattern` | Content Library, FCD, vSphere Replication, system folders | Orphaned VMDK | Regex of paths never reported |
+| `orphanedDisks.topItems` | `20` | Orphaned VMDK | Size of the "largest items" table |
+| `batchBuild.maxVms` / `pollSeconds` / `stuckMinutes` / `customizationMinutes` | `20` / `30` / `45` / `40` | Windows VM build (batch) | VMs per request, polling interval, no-progress limit per step, guest customization limit |
+| `batchBuild.updateRounds` / `updateRoundMinutes` / `domainJoinAttempts` / `maxBootstrapMinutes` | `3` / `120` / `3` / `300` | Windows VM build (batch) | Windows Update rounds and limit per round, join retries, overall bootstrap limit (keep the item `timeoutMinutes` above it) |
+
+Upgrades add any `operations.*` section that is missing, with these defaults, without touching the existing ones.
 
 ### 3.15 Data files
 
@@ -431,6 +450,7 @@ Some items read editable JSON files in `config/` instead of the main configurati
 | `version-baseline.json` | Version compliance | `targets` (vCenter / ESXi `minBuild`, VMware Tools `minVersion`, VM hardware `minVersion`) and `advisories[]` (`id`, `product`, `fixedBuild`, optional `appliesToVersion`). 0 / empty = not set. |
 | `hardening-baseline.json` | Hardening compliance | `esxiAdvancedSettings[]`, `esxiServices[]`, `vmAdvancedSettings[]` with `operator` `eq\|ne\|le\|ge\|range\|nonEmpty`, `expected`, `defaultCompliant`. Read-only checks. |
 | `backup.json` | Backup policy, Decommission | `connector` (`vsphereTag`; other connectors are templates in `catalog/_connectors/backup/`), `tagCategory` (`Backup-Policy`), `cloudTagName`, `policies[]`. |
+| `drs-rules.json` | DRS rule compliance | `largeVmGB` / `mediumVmGB` (large VMs highlighted per host), `vmNamePattern` (VM detail table, e.g. `(?i)sql`), `clusters[]` (`site`, `cluster`, `rules[]` with `name`, `type` `Separate\|Together`, `vms[]`, `note`, and `decommission[]` VM names that should be gone). Every rule found in the cluster is checked anyway; listed rules are also checked for existence, type and exact members. |
 
 ### 3.16 `catalog`
 
@@ -445,8 +465,8 @@ Shipped keys:
 
 | Key | Used by | Example |
 |---|---|---|
-| `windowsTemplate` | `vm-windows-2025`, `blueprint-three-tier` | `TPL-WIN2025` |
-| `windowsCustomizationSpec` | `vm-windows-2025`, `blueprint-three-tier` | `WIN2025-BASE` |
+| `windowsTemplate` | `vm-windows-2025`, `blueprint-three-tier`, `vm-windows-batch` | `TPL-WIN2025` |
+| `windowsCustomizationSpec` | `vm-windows-2025`, `blueprint-three-tier`, `vm-windows-batch` | `WIN2025-BASE` |
 | `linuxTemplate` | `vm-almalinux` | `TPL-ALMALINUX9` |
 | `linuxCustomizationSpec` | `vm-almalinux` | `ALMALINUX-BASE` |
 | `sqlServerMediaPath` | `sql-server-2022`, `blueprint-three-tier` | `\\fileserver\software\SQL2022` |

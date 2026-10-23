@@ -23,6 +23,7 @@ Validate with `pwsh -File tools/Test-CatalogItem.ps1 -Path catalog/items/<id>.js
 - No `sites` list in shipped items (every enabled site is offered). No site codes, host names, template names or paths in shipped items: a per-site value is written as `"@site:<key>"` in `execution.fixedParameters`, declared in configuration `catalog.siteValues` (key, label, help, usedBy, default `TBD-...`) and stored per site in `sites[].catalogValues`. The runner refuses to run while a value is missing or still `TBD-`.
 - `execution`: `handler` (file name only), `requiresVCenter` (true for vSphere), `siteInput` "Site", `timeoutMinutes`, `fixedParameters`.
   Cloud items: `"requiresVCenter": false, "cloud": "aws"|"azure"` (see `catalog/items/cloud-aws-almalinux.json`).
+  Aria Operations: `"aria": "required"|"optional"` gives `Context.Aria` (see `catalog/items/vm-troubleshoot.json`).
 - Sensitive items: `"security": { "requireReauth": true }` (re-confirm password on submit and approve). An input can carry `"requireReauth": true` (its lookup requires re-auth).
 - Every input that is not a VM note MUST be a parameter of the handler (validator rule). Input names are PascalCase.
 - Input types: text, textarea, number, select, boolean, ipv4, credential. Selects use `options` (static `[{value,label}]`) or `source`.
@@ -31,6 +32,7 @@ Validate with `pwsh -File tools/Test-CatalogItem.ps1 -Path catalog/items/<id>.js
   - inventory (must list the site input in `dependsOn`): `clusters`, `datastores` (uses `Cluster` or `Workload` value), `datastoreClusters`, `portgroups`, `templates`, `folders`, `vms` (+ optional `powerState`: PoweredOn/PoweredOff, `byCluster`: true uses the `Cluster` input), `hosts` (filtered by the `Cluster` input when set; optional `state`: connected | maintenance), `vdSwitches`, `storageDevices` (dependsOn Site + Cluster; cached LUN scan with a "Rescan storage" button; put `"requireReauth": true` on that input).
   - data files: `softwareSets` (+ optional `os`: windows | linux), `backupPolicies`.
   - cloud: `awsSubnets`, `awsInstanceTypes`, `azureSubnets`, `azureVmSizes`.
+  - Aria / directory: `ariaReports` (dependsOn the site input; optional `subject`), `adDirectories`, `adOus` (dependsOn the directory input).
   - optional `filter` (regex on value), `dependsOn` must reference inputs declared earlier.
 - `credential` input: the user picks a vault entry; the handler receives a `[pscredential]`. Optional `"vaultTags": ["guest-windows"]` narrows the list.
 - `visibleWhen`: `{ "field": "Mode", "equals": "NFS" }`. `validation`: `pattern`, `patternMessage`, `min`, `max`, `maxLength`. `transform`: "upper" | "lower".
@@ -46,6 +48,7 @@ Validate with `pwsh -File tools/Test-CatalogItem.ps1 -Path catalog/items/<id>.js
 - Pre-checks first, then changes. Throw a clear message to fail. Roll back what the handler created when `$Context.RollbackOnFailure` is true.
 - Respect `defaults.allowedClusters` of the site when the user picks a cluster/host.
 - Destructive bulk operations default to a dry run (`[bool] $DryRun = $true` + input `DryRun` boolean default true).
+- Guest scripts never write secrets to disk; pass them only inside the script of the step that needs them with `-Sensitive` and `-Secrets`.
 - Return an `[ordered]@{}` result (strings, numbers, string arrays; `NextSteps` array for follow-up). Keep it short; details go to the log or a report.
 - Reports: `New-PortalReport -Title -Subtitle -Context $Context -Sections @(New-PortalReportSection -Title -Rows -Columns -Note) -Summary ([ordered]@{...})` (module `automation/lib/Portal.Report.psm1`, already imported by the runner). Columns named Status / Result / Compliance are coloured: OK / PASS / COMPLIANT green, WARN / WARNING / EXPIRING / NOT SET amber, FAIL / CRITICAL / ERROR / EXPIRED / NON-COMPLIANT red. Return the report file names in the result (`Report = 'name.html'`).
 - Data files (module `modules/Portal.Data.psm1`, imported by the runner): `Get-PortalDataFile -Name software|versionBaseline|hardeningBaseline|backup`, `Get-PortalSoftwareSet -Id <set> [-Os windows|linux]` → `@{ id; name; os; packages = @(approved); skipped = @(@{id;name;status;notes}); repository = @{windowsBase; linuxBase} }`.

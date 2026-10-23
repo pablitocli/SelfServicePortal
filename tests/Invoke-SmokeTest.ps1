@@ -651,5 +651,36 @@ $upCat = Read-PortalJson -Path $cfgPath
 Check 'Team roles mapped to the existing teams' ($upCat.catalog.teamRoles.datacenter -eq 'OpsTeamA' -and $upCat.catalog.teamRoles.cloud -eq 'CloudTeamB')
 Check 'Every site receives the declared catalog values (TBD placeholders)' (@($upCat.sites | Where-Object { $_.catalogValues.windowsTemplate -like 'TBD-*' }).Count -eq @($upCat.sites).Count)
 
+Write-Host "`n1.2: Aria Operations connection, operations upgrade, report attachments" -ForegroundColor Cyan
+$c12 = Read-PortalJson -Path $cfgPath
+foreach ($s in $c12.sites) { $s.Remove('aria') }
+$c12.operations.Remove('troubleshooting'); $c12.operations.Remove('batchBuild')
+Write-PortalJson -Path $cfgPath -Value $c12
+Initialize-PortalConfiguration | Out-Null
+$u12 = Read-PortalJson -Path $cfgPath
+Check 'Upgrade adds a disabled Aria section to every site' (@($u12.sites | Where-Object { $_.aria -and -not $_.aria.enabled -and $_.aria.credential.id -eq "aria-$($_.code.ToLower())" }).Count -eq @($u12.sites).Count)
+Check 'Upgrade adds missing operations sections (troubleshooting, batchBuild) without touching others' ([bool]$u12.operations.troubleshooting.timeZone -and $u12.operations.batchBuild.stuckMinutes -eq 45 -and $u12.operations.snapshots)
+$e12 = try { Set-PortalSiteSettings -Code 'DC1' -Settings @{ aria = @{ enabled = $true; endpoint = '' } } -Actor 'test'; '' } catch { $_.Exception.Message }
+Check 'Aria cannot be enabled without an endpoint' ($e12 -match 'endpoint')
+$e12 = try { Set-PortalSiteSettings -Code 'DC1' -Settings @{ aria = @{ endpoint = 'ops01 bad"host' } } -Actor 'test'; '' } catch { $_.Exception.Message }
+Check 'Aria endpoint validated' ($e12 -match 'host name')
+Set-PortalSiteSettings -Code 'DC1' -Settings @{ aria = @{ enabled = $true; endpoint = 'https://ops01.corp.example.com/ui/'; authSource = 'CORP-AD'; invalidCertificateAction = 'Fail'; reports = @(@{ id = 'a1b2-c3'; name = 'VM Troubleshooting'; subject = @('VirtualMachine') }) } } -Actor 'test'
+Set-PortalSiteAriaCredential -Code 'DC1' -Username 'svc-aria-ro@corp' -Password 'Ar1a-Secret-99' -Actor 'test'
+$av = (@(Get-PortalSiteView) | Where-Object code -eq 'DC1').aria
+Check 'Aria settings saved (endpoint normalised, auth source, TLS, offered reports)' ($av.enabled -and $av.endpoint -eq 'ops01.corp.example.com' -and $av.authSource -eq 'CORP-AD' -and $av.invalidCertificateAction -eq 'Fail' -and @($av.reports).Count -eq 1)
+Check 'Aria account stored in the vault, never in the view or the config' ($av.credential.configured -and $av.credential.username -eq 'svc-aria-ro@corp' -and ((Get-PortalSiteView | ConvertTo-Json -Depth 10) -notmatch 'Ar1a-Secret-99') -and ((Get-Content $cfgPath -Raw) -notmatch 'Ar1a-Secret-99'))
+$badRep = try { Set-PortalSiteSettings -Code 'DC1' -Settings @{ aria = @{ reports = @(@{ id = '../x'; name = 'x' }) } } -Actor 'test'; $false } catch { $true }
+Check 'Report definition ids validated' $badRep
+$rq = @(Get-ChildItem (Join-Path $temp 'data/requests') -Filter 'REQ-*.json' | Select-Object -First 1)
+if ($rq.Count) {
+    $rid = [IO.Path]::GetFileNameWithoutExtension($rq[0].Name)
+    $rdir = Get-PortalReportDir -Id $rid; $null = New-Item -ItemType Directory -Path $rdir -Force
+    Set-Content -LiteralPath (Join-Path $rdir 'aria-report-x.pdf') -Value 'pdf'; Set-Content -LiteralPath (Join-Path $rdir 'evidence-x.zip') -Value 'zip'; Set-Content -LiteralPath (Join-Path $rdir 'run.ps1') -Value 'x'
+    $lst = @(Get-PortalRequestReport -Id $rid | ForEach-Object name)
+    Check 'Request attachments: PDF and ZIP listed, scripts never served' ($lst -contains 'aria-report-x.pdf' -and $lst -contains 'evidence-x.zip' -and $lst -notcontains 'run.ps1' -and -not (Get-PortalRequestReport -Id $rid -Name 'run.ps1') -and (Get-PortalRequestReport -Id $rid -Name 'evidence-x.zip'))
+}
+$cat12 = Get-PortalCatalog
+Check 'All 1.2 items load and validate' (@(@('vm-troubleshoot', 'vm-incident-evidence', 'aria-report', 'report-drs-compliance', 'report-change-impact', 'report-orphaned-vmdk', 'guest-local-groups', 'guest-data-disks', 'vm-move-folder', 'ad-move-computer', 'vm-windows-batch', 'dc-promote', 'spec-copy') | Where-Object { $id = $_; -not ($cat12.items | Where-Object id -eq $id) }).Count -eq 0)
+
 Write-Host ("`nResult: {0} passed, {1} failed  (temp root: {2})" -f $pass, $fail, $temp) -ForegroundColor ($fail ? 'Red' : 'Green')
 exit $fail

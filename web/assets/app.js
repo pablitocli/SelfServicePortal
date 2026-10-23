@@ -292,12 +292,13 @@
         if (!f.visibleWhen) return;
         const ctl = el(f.visibleWhen.field);
         const cur = ctl ? (ctl.type === 'checkbox' ? ctl.checked : ctl.value) : undefined;
-        document.getElementById(`w_${f.name}`).classList.toggle('hidden', String(cur) !== String(f.visibleWhen.equals));
+        const w = document.getElementById(`w_${f.name}`);   // the form may be gone (navigation during a lookup)
+        if (w) w.classList.toggle('hidden', String(cur) !== String(f.visibleWhen.equals));
       });
     };
     async function loadOptions(name) {
       const f = byName[name]; const s = el(name);
-      if (!f.source && f.type !== 'credential') return;
+      if (!s || (!f.source && f.type !== 'credential')) return;
       const deps = (f.source && f.source.dependsOn) || [];
       const values = readValues();
       if (deps.some((d) => !values[d])) { s.innerHTML = `<option value="">Select ${esc(byName[deps.find((d) => !values[d])].label)} first</option>`; s.disabled = true; return; }
@@ -305,6 +306,7 @@
       try {
         const res = await api(`/api/catalog/${encodeURIComponent(item.id)}/options/${encodeURIComponent(name)}`, { method: 'POST', body: { values } });
         const opts = res.options || [];
+        if (!s.isConnected) return;
         s.innerHTML = `<option value="">${opts.length ? 'Select...' : 'No options available'}</option>` +
           opts.map((o) => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('');
         if (f.default !== undefined && opts.some((o) => o.value === String(f.default))) s.value = String(f.default);
@@ -396,7 +398,7 @@
     const def = f.default ?? '';
     let ctl;
     switch (f.type) {
-      case 'textarea': ctl = `<textarea id="${id}" maxlength="${esc(f.validation?.maxLength ?? '')}">${esc(def)}</textarea>`; break;
+      case 'textarea': ctl = `<textarea id="${id}" maxlength="${esc(f.validation?.maxLength ?? '')}" placeholder="${esc(f.placeholder || '')}" ${f.placeholder && String(f.placeholder).includes('\n') ? 'rows="5" class="mono"' : ''}>${esc(def)}</textarea>`; break;
       case 'number':   ctl = `<input id="${id}" type="number" value="${esc(def)}" ${f.validation?.min !== undefined ? `min="${esc(f.validation.min)}"` : ''} ${f.validation?.max !== undefined ? `max="${esc(f.validation.max)}"` : ''}>`; break;
       case 'boolean':  return `<div class="field" id="w_${f.name}"><label class="toggle"><input id="${id}" type="checkbox" ${def === true || def === 'true' ? 'checked' : ''}> ${esc(f.label)}</label>${help}<div class="err"></div></div>`;
       case 'select':

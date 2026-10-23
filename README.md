@@ -15,7 +15,8 @@ script, so adding a service needs no web development and no restart.
 |---|---|
 | **Service catalog** | JSON items with typed inputs, live lookups from vCenter / AWS / Azure inventory, per-site fixed parameters, VM notes section, validation, hot reload. Visual catalog editor in Admin. |
 | **Workflow** | Optional approvals per item, team-scoped approvers, self-approval policy, out-of-process job runner with timeouts, live job log, rollback convention. |
-| **Shipped items (35)** | Build: Windows Server 2025 / AlmaLinux on vSphere, AWS EC2, Azure VMs, three-tier blueprint. Day 2: power, disk, resize, snapshot, vMotion, test clone, decommission with quarantine, snapshot clean-up. Infrastructure: distributed port groups, DRS rules, host maintenance, new datastore (VMFS / NFS) with controlled rescans. Software: SQL Server 2022, Windows roles / MSDTC, agent baseline from a software repository, AlmaLinux baseline. Reports (HTML / CSV): vSphere health, version and hardening compliance, certificates, capacity forecast, right-sizing, cloud cost. Backup policy by vSphere tag (vendor-agnostic). |
+| **Shipped items (48)** | Build: Windows Server 2025 / AlmaLinux on vSphere, **batch Windows build from a CSV with in-guest bootstrap and closure report**, AWS EC2, Azure VMs, three-tier blueprint. Troubleshooting: **VM troubleshooting (guest OS + vSphere + Aria Operations, ranked probable causes)**, **incident evidence export (RCA)**, **Aria Operations reports**. Day 2: power (batch), disk, resize, snapshot, vMotion, test clone, decommission with quarantine, snapshot clean-up, local admins / RDP users, data disk initialization, move to folder, move computer to OU. Infrastructure: distributed port groups, DRS rules, host maintenance, new datastore (VMFS / NFS) with controlled rescans. Software: SQL Server 2022, Windows roles / MSDTC, agent baseline from a software repository, AlmaLinux baseline. Reports (HTML / CSV): vSphere health, version and hardening compliance, certificates, capacity forecast, right-sizing, DRS rule compliance, before / after change metrics, orphaned VMDK assessment, cloud cost. Admin: promote domain controller, copy customization spec. Backup policy by vSphere tag (vendor-agnostic). |
+| **Aria Operations** | Optional per-site connection to Aria Operations / VCF Operations (vault account, token per job): health, alerts, peak statistics and report definitions offered in forms. |
 | **Identity** | Local accounts, Active Directory and OpenLDAP (LDAPS / StartTLS), several directories at once, user@domain / DOMAIN\user routing, group → role and group → team mapping, sign-in simulation. |
 | **Security** | TOTP MFA with recovery codes (required for admin roles), password policy, lockout, 30-minute idle timeout with warning, re-authentication for sensitive actions, session revocation, admin networks, separation of duties (Catalog / Security / Vault admins), break-glass accounts, CSRF protection, full audit trail. |
 | **Credential vault** | AES-256-GCM vault for automation credentials (vCenter, guests, LDAP bind, cloud, APIs): write-only, scoped to items and teams, versioned, expiry-aware, injected into jobs as `[pscredential]` and masked in logs. |
@@ -40,7 +41,7 @@ Build the OVA with Packer ([docs/ova.md](docs/ova.md)), deploy it from the vSphe
 ### Option 2 — Linux (AlmaLinux / RHEL / Rocky 9, Ubuntu 24.04)
 
 ```bash
-tar xzf self-service-portal-1.1.3.tar.gz && cd self-service-portal-1.1.3
+tar xzf self-service-portal-1.2.0.tar.gz && cd self-service-portal-1.2.0
 sudo ./packaging/linux/install.sh --hostname-cert portal.example.com
 ```
 
@@ -116,8 +117,8 @@ docs/                     documentation
 ## Testing
 
 ```powershell
-pwsh -File ./tests/Invoke-SmokeTest.ps1      # engine, security, workflow (~205 checks)
-pwsh -File ./tests/Invoke-HandlerTests.ps1   # every catalog item + handlers against PowerCLI / cloud stubs (~330 checks)
+pwsh -File ./tests/Invoke-SmokeTest.ps1      # engine, security, workflow (~220 checks)
+pwsh -File ./tests/Invoke-HandlerTests.ps1   # every catalog item + handlers against PowerCLI / cloud / Aria stubs (~480 checks)
 ```
 
 The smoke test runs offline checks — catalog, roles and teams, workflow and runner, vault, password policy, lockout, sessions,
@@ -126,7 +127,7 @@ configured. CI runs them on Linux and Windows ([.github/workflows/ci.yml](.githu
 
 ## Status
 
-Version 1.1.3. The engine, UI, identity layer (verified against OpenLDAP over LDAPS and StartTLS) and vault are
+Version 1.2.0. The engine, UI, identity layer (verified against OpenLDAP over LDAPS and StartTLS) and vault are
 covered by automated tests; integration with production vCenter, Active Directory and cloud tenants must be validated
 in your environment — start with a lab site. Planned work is in the [roadmap](docs/roadmap.md).
 
