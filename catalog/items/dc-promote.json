@@ -1,0 +1,189 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "dc-promote",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Promote domain controller",
+  "category": "Datacenter operations",
+  "icon": "security",
+  "summary": "Promotes a domain-joined Windows VM to an additional domain controller, or checks its role.",
+  "description": "High-impact change for Admins. Check mode reports the domain role. Promote mode verifies the VM is a member server of the same domain, takes a mandatory snapshot, installs AD DS, runs the prerequisite test and Install-ADDSDomainController (optionally with DNS), restarts the guest and verifies the role, the NTDS service and the SYSVOL / NETLOGON shares. Passwords (domain admin, DSRM) come from the vault and are never written in the guest. Requires approval, re-authentication and typing the VM name.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "Active Directory",
+    "Windows",
+    "High impact"
+  ],
+  "estimatedDuration": "20-60 min",
+  "access": {
+    "roles": [
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "security": {
+    "requireReauth": true
+  },
+  "execution": {
+    "handler": "Install-GuestDomainController.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 90,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMName",
+      "label": "Virtual machine",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "vms",
+        "dependsOn": [
+          "Site"
+        ],
+        "powerState": "PoweredOn"
+      }
+    },
+    {
+      "name": "Mode",
+      "label": "Action",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "default": "Check",
+      "options": [
+        {
+          "value": "Check",
+          "label": "Check current role only"
+        },
+        {
+          "value": "Promote",
+          "label": "Promote to domain controller"
+        }
+      ]
+    },
+    {
+      "name": "Domain",
+      "label": "Domain",
+      "type": "text",
+      "group": "Domain",
+      "required": true,
+      "help": "DNS name of the domain the VM is already joined to.",
+      "validation": {
+        "pattern": "^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$",
+        "patternMessage": "DNS domain name, e.g. corp.example.com."
+      }
+    },
+    {
+      "name": "DomainCredential",
+      "label": "Domain admin credential",
+      "type": "credential",
+      "group": "Domain",
+      "required": true,
+      "help": "Account allowed to add domain controllers; also used for the guest operations.",
+      "vaultTags": [
+        "domain-admin"
+      ]
+    },
+    {
+      "name": "DsrmCredential",
+      "label": "DSRM password",
+      "type": "credential",
+      "group": "Domain",
+      "required": true,
+      "help": "Vault entry whose password becomes the Directory Services Restore Mode password.",
+      "vaultTags": [
+        "dsrm"
+      ],
+      "visibleWhen": {
+        "field": "Mode",
+        "equals": "Promote"
+      }
+    },
+    {
+      "name": "InstallDns",
+      "label": "Install DNS server",
+      "type": "boolean",
+      "group": "Domain",
+      "required": false,
+      "default": true,
+      "visibleWhen": {
+        "field": "Mode",
+        "equals": "Promote"
+      }
+    },
+    {
+      "name": "AdSiteName",
+      "label": "AD site (optional)",
+      "type": "text",
+      "group": "Domain",
+      "required": false,
+      "validation": {
+        "maxLength": 64
+      },
+      "visibleWhen": {
+        "field": "Mode",
+        "equals": "Promote"
+      }
+    },
+    {
+      "name": "ReplicationSourceDC",
+      "label": "Replication source DC (optional)",
+      "type": "text",
+      "group": "Domain",
+      "required": false,
+      "validation": {
+        "maxLength": 64
+      },
+      "visibleWhen": {
+        "field": "Mode",
+        "equals": "Promote"
+      }
+    },
+    {
+      "name": "ConfirmVMName",
+      "label": "Type the VM name to confirm",
+      "type": "text",
+      "group": "Change",
+      "required": true,
+      "validation": {
+        "maxLength": 80
+      },
+      "visibleWhen": {
+        "field": "Mode",
+        "equals": "Promote"
+      }
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Change",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

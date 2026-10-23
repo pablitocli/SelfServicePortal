@@ -1,0 +1,120 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "spec-copy",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Copy customization spec",
+  "category": "Datacenter operations",
+  "icon": "generic",
+  "summary": "Copies an OS customization spec to another site and sets its passwords from the vault.",
+  "description": "Clones an OS customization spec from the vCenter of one site to the vCenter of another (e.g. a new datacenter) and sets the local Administrator password, and optionally the domain join account, from vault entries (vCenter never exports them). An existing spec with the same name is replaced only with \"Overwrite\"; its previous settings are saved to the request.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Customization",
+    "Admin"
+  ],
+  "estimatedDuration": "< 1 min",
+  "access": {
+    "roles": [
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "security": {
+    "requireReauth": true
+  },
+  "execution": {
+    "handler": "Copy-VsphereCustomizationSpec.ps1",
+    "requiresVCenter": true,
+    "siteInput": "SourceSite",
+    "timeoutMinutes": 10,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "SourceSite",
+      "label": "Source datacenter",
+      "type": "select",
+      "group": "Spec",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "TargetSite",
+      "label": "Target datacenter",
+      "type": "select",
+      "group": "Spec",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "SpecName",
+      "label": "Spec name (source)",
+      "type": "text",
+      "group": "Spec",
+      "required": true,
+      "validation": {
+        "maxLength": 80
+      }
+    },
+    {
+      "name": "NewName",
+      "label": "Name on the target (optional)",
+      "type": "text",
+      "group": "Spec",
+      "required": false,
+      "validation": {
+        "maxLength": 80
+      }
+    },
+    {
+      "name": "AdminPassword",
+      "label": "Local Administrator password",
+      "type": "credential",
+      "group": "Passwords",
+      "required": true,
+      "help": "Vault entry whose password is set as the spec Administrator password.",
+      "vaultTags": [
+        "guest-windows"
+      ]
+    },
+    {
+      "name": "DomainJoinCredential",
+      "label": "Domain join account (optional)",
+      "type": "credential",
+      "group": "Passwords",
+      "required": false,
+      "vaultTags": [
+        "domain-join"
+      ]
+    },
+    {
+      "name": "Overwrite",
+      "label": "Overwrite an existing spec",
+      "type": "boolean",
+      "group": "Spec",
+      "required": false,
+      "default": false
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Change",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}
