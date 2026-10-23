@@ -412,4 +412,5 @@ function Remove-PortalIdentityProvider {
 }
 
 Export-ModuleMember -Function Get-PortalIdentityProvider, Resolve-PortalLoginTarget, Invoke-PortalLdapAuthentication, Test-PortalIdentityProvider,
-    Set-PortalIdentityProvider, Remove-PortalIdentityProvider, ConvertTo-PortalLdapFilterValue
+    Set-PortalIdentityProvider, Remove-PortalIdentityProvider, ConvertTo-PortalLdapFilterValue,
+    New-PortalLdapConnection, Invoke-PortalLdapBind, Get-PortalLdapEntry, Get-PortalLdapValue, Get-PortalLdapErrorMessage, Get-PortalLdapServiceConnection

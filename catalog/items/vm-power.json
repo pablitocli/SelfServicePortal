@@ -1,13 +1,13 @@
 {
   "$schema": "../schema/catalog-item.schema.json",
   "id": "vm-power",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "enabled": true,
   "name": "VM power action",
   "category": "Datacenter operations",
   "icon": "vm",
-  "summary": "Start, gracefully shut down or restart an existing VM.",
-  "description": "Power operations on an existing VM. Shutdown and restart are graceful (VMware Tools); Reset is a hard reset.",
+  "summary": "Power on, shut down, restart or reset one or more VMs.",
+  "description": "Power operations on an existing VM. Shutdown and restart are graceful (VMware Tools); Reset is a hard reset. Several VMs can be listed in \"Additional VMs\"; each one is processed and reported. A guest restart can fall back to a hard reset when VMware Tools is not running.",
   "owner": "Infrastructure Operations",
   "tags": [
     "vSphere",
@@ -64,6 +64,17 @@
       }
     },
     {
+      "name": "AdditionalVMs",
+      "label": "Additional VMs (optional)",
+      "type": "textarea",
+      "group": "Target",
+      "required": false,
+      "help": "More VM names, one per line (max 50 in total).",
+      "validation": {
+        "maxLength": 4000
+      }
+    },
+    {
       "name": "Action",
       "label": "Action",
       "type": "select",
@@ -87,6 +98,18 @@
           "label": "Hard reset"
         }
       ]
+    },
+    {
+      "name": "ResetIfToolsDown",
+      "label": "Hard reset if Tools are not running",
+      "type": "boolean",
+      "group": "Target",
+      "required": false,
+      "default": false,
+      "visibleWhen": {
+        "field": "Action",
+        "equals": "Restart"
+      }
     },
     {
       "name": "ChangeTicket",

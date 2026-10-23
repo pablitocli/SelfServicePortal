@@ -1,0 +1,98 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "ad-move-computer",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Move computer to OU",
+  "category": "Datacenter operations",
+  "icon": "security",
+  "summary": "Moves Active Directory computer objects to an OU chosen from the directory.",
+  "description": "Moves the AD computer objects of one or more servers to an organizational unit browsed from the directory (Admin > Identity provider of type Active Directory). Runs over LDAP with a vault credential that has the right to move computer objects; no RSAT needed. Objects already in the OU are skipped; the previous OU of each object is reported so the move can be reverted.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "Active Directory",
+    "Day 2"
+  ],
+  "estimatedDuration": "< 1 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "execution": {
+    "handler": "Move-AdComputerOu.ps1",
+    "requiresVCenter": false,
+    "timeoutMinutes": 10,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Directory",
+      "label": "Directory",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "adDirectories"
+      }
+    },
+    {
+      "name": "ComputerNames",
+      "label": "Computer names",
+      "type": "textarea",
+      "group": "Target",
+      "required": true,
+      "help": "One name per line (NetBIOS name or FQDN), max 200.",
+      "validation": {
+        "maxLength": 4000
+      }
+    },
+    {
+      "name": "TargetOU",
+      "label": "Target OU",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "help": "OUs read from the directory (refreshed every 15 minutes).",
+      "source": {
+        "type": "adOus",
+        "dependsOn": [
+          "Directory"
+        ]
+      }
+    },
+    {
+      "name": "DirectoryCredential",
+      "label": "Directory credential",
+      "type": "credential",
+      "group": "Target",
+      "required": true,
+      "help": "Account allowed to move computer objects between these OUs.",
+      "vaultTags": [
+        "ad-admin"
+      ]
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Change",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

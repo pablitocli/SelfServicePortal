@@ -14,7 +14,7 @@ Set-StrictMode -Version Latest
 $script:ValidInputTypes  = @('text', 'textarea', 'number', 'select', 'boolean', 'ipv4', 'credential')
 $script:ValidSourceTypes = @('sites', 'clusters', 'datastores', 'datastoreClusters', 'portgroups', 'templates', 'folders', 'vms',
                             'hosts', 'vdSwitches', 'storageDevices', 'softwareSets', 'backupPolicies',
-                            'awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes', 'ariaReports')
+                            'awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes', 'ariaReports', 'adDirectories', 'adOus')
 $script:CloudSources     = @('awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes')
 $script:ValidRoles       = @('Requester', 'Approver', 'Admin', 'CatalogAdmin', 'SecurityAdmin', 'VaultAdmin')
 $script:InventorySources = @('clusters', 'datastores', 'datastoreClusters', 'portgroups', 'templates', 'folders', 'vms', 'hosts', 'vdSwitches', 'storageDevices')
@@ -426,6 +426,43 @@ function Get-PortalLookupOptions {
             }
         }
         $rows = @($rows)
+        if ($filter) { $rows = @($rows | Where-Object { $_.value -match $filter }) }
+        return $rows
+    }
+
+    if ($type -eq 'adDirectories') {
+        # Active Directory identity providers (Admin > Identity) usable by directory items.
+        return @(Get-PortalIdentityProvider -EnabledOnly | Where-Object { $_.flavor -eq 'ad' } |
+            ForEach-Object { [ordered]@{ value = [string]$_.id; label = ('{0} ({1})' -f $(if (Get-Prop $_ 'name') { $_.name } else { $_.id }), (@(Get-Prop $_ 'domains' @()) | Select-Object -First 1)) } })
+    }
+
+    if ($type -eq 'adOus') {
+        # OUs of the chosen directory, read with the provider bind account and cached for 15 minutes.
+        $dirId = [string](Get-Prop $Values (Get-Prop $src 'directoryInput' 'Directory'))
+        if ($dirId -notmatch '^[A-Za-z0-9_-]{1,40}$') { return @() }
+        $cache = Join-Path (Get-PortalPath -Name Inventory) "ad-$dirId-ous.json"
+        $c = Read-PortalJson -Path $cache
+        $fresh = $c -and $c.Contains('fetchedAt') -and ((Get-Date).ToUniversalTime() - [datetime]::Parse([string]$c.fetchedAt).ToUniversalTime()).TotalMinutes -lt 15
+        if (-not $fresh) {
+            $p = Get-PortalIdentityProvider -Id $dirId -EnabledOnly | Select-Object -First 1
+            if (-not $p -or $p.flavor -ne 'ad') { throw "Directory '$dirId' is not an enabled Active Directory provider." }
+            $conn = $null
+            try {
+                $conn = Get-PortalLdapServiceConnection -Provider $p
+                $ous = @(Get-PortalLdapEntry -Connection $conn -BaseDn ([string]$p.baseDn) -Filter '(objectClass=organizationalUnit)' -Attributes @('distinguishedName') -SizeLimit 5000 |
+                    ForEach-Object { [string]$_.DistinguishedName } | Sort-Object)
+            }
+            catch { throw "OU list of '$dirId' is not available: $($_.Exception.Message) The provider needs a bind credential (Admin > Identity)." }
+            finally { if ($conn) { $conn.Dispose() } }
+            $c = [ordered]@{ fetchedAt = (Get-PortalTimestamp); ous = $ous }
+            Write-PortalJson -Path $cache -Value $c
+        }
+        $rows = @(@($c.ous) | ForEach-Object {
+            $dn = [string]$_
+            $path = @(([regex]::Matches($dn, '(?i)OU=((?:\\.|[^,])+)') | ForEach-Object { $_.Groups[1].Value -replace '\\(.)', '$1' }))
+            [array]::Reverse($path)
+            [ordered]@{ value = $dn; label = ($path -join ' / ') }
+        } | Sort-Object { $_.label })
         if ($filter) { $rows = @($rows | Where-Object { $_.value -match $filter }) }
         return $rows
     }

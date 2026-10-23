@@ -10,7 +10,7 @@
   const ROLE_HELP = { Requester: 'request services', Approver: 'approve requests of their teams', Admin: 'everything',
                       CatalogAdmin: 'catalog, branding, teams, VM notes', SecurityAdmin: 'identity, users, security policy, audit', VaultAdmin: 'credential vault' };
   const INPUT_TYPES = ['text', 'textarea', 'number', 'select', 'boolean', 'ipv4', 'credential'];
-  const SOURCE_TYPES = ['', 'sites', 'clusters', 'datastores', 'datastoreClusters', 'portgroups', 'templates', 'folders', 'vms', 'hosts', 'vdSwitches', 'storageDevices', 'softwareSets', 'backupPolicies', 'awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes', 'ariaReports'];
+  const SOURCE_TYPES = ['', 'sites', 'clusters', 'datastores', 'datastoreClusters', 'portgroups', 'templates', 'folders', 'vms', 'hosts', 'vdSwitches', 'storageDevices', 'softwareSets', 'backupPolicies', 'awsSubnets', 'awsInstanceTypes', 'azureSubnets', 'azureVmSizes', 'ariaReports', 'adDirectories', 'adOus'];
   const ICON_KEYS = ['vm', 'windows', 'linux', 'snapshot', 'network', 'storage', 'backup', 'security', 'database', 'cloud', 'generic'];
   const TABS = [['catalog', 'Catalog', ['catalog.manage']], ['datafiles', 'Data files', ['catalog.manage']], ['customization', 'Customization', ['catalog.manage', 'security.manage']],
                 ['vcenters', 'vCenter connections', ['connections.manage']], ['clouds', 'Cloud connections', ['connections.manage']],

@@ -302,7 +302,9 @@
                 "awsInstanceTypes",
                 "azureSubnets",
                 "azureVmSizes",
-                "ariaReports"
+                "ariaReports",
+                "adDirectories",
+                "adOus"
               ]
             },
             "dependsOn": {
@@ -354,6 +356,10 @@
             "subject": {
               "type": "string",
               "description": "ariaReports: only definitions whose subject includes this resource kind (e.g. VirtualMachine)."
+            },
+            "directoryInput": {
+              "type": "string",
+              "description": "adOus: name of the directory input (default Directory)."
             }
           }
         },

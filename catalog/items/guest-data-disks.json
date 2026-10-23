@@ -1,0 +1,167 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "guest-data-disks",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Initialize data disks",
+  "category": "Storage",
+  "icon": "storage",
+  "summary": "Brings data disks online, frees the letter held by the CD-ROM and formats them with the requested letters.",
+  "description": "On one or more Windows VMs: for each requested drive letter, takes the next disk without data partitions (disk-number order), brings it online, initializes it (GPT) when raw, creates the partition with the letter and formats it. A CD-ROM holding the letter is moved to a free letter. Letters already used by a data volume are skipped; disks with data partitions are never touched. Dry run (default) shows the plan only.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "Windows",
+    "Guest OS",
+    "Storage"
+  ],
+  "estimatedDuration": "1-5 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "execution": {
+    "handler": "Initialize-GuestDataDisks.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMNames",
+      "label": "Virtual machines",
+      "type": "textarea",
+      "group": "Target",
+      "required": true,
+      "help": "One VM name per line (or comma separated), max 50.",
+      "validation": {
+        "maxLength": 4000
+      }
+    },
+    {
+      "name": "DriveLetters",
+      "label": "Drive letters",
+      "type": "text",
+      "group": "Disks",
+      "required": true,
+      "default": "D",
+      "help": "In disk order, e.g. D or D,E,F,L,T.",
+      "validation": {
+        "pattern": "^[D-Yd-y](\\s*[,;]\\s*[D-Yd-y])*$",
+        "patternMessage": "Letters D to Y separated by commas."
+      }
+    },
+    {
+      "name": "Labels",
+      "label": "Volume labels",
+      "type": "text",
+      "group": "Disks",
+      "required": false,
+      "help": "Same order as the letters, e.g. Data,Logs. Empty = DataD, DataE...",
+      "validation": {
+        "maxLength": 300
+      }
+    },
+    {
+      "name": "FileSystem",
+      "label": "File system",
+      "type": "select",
+      "group": "Disks",
+      "required": true,
+      "default": "NTFS",
+      "options": [
+        {
+          "value": "NTFS",
+          "label": "NTFS"
+        },
+        {
+          "value": "ReFS",
+          "label": "ReFS"
+        }
+      ]
+    },
+    {
+      "name": "AllocationUnit",
+      "label": "Allocation unit",
+      "type": "select",
+      "group": "Disks",
+      "required": true,
+      "default": "Default",
+      "help": "64K is the usual choice for SQL Server data and log volumes.",
+      "options": [
+        {
+          "value": "Default",
+          "label": "Default"
+        },
+        {
+          "value": "4K",
+          "label": "4 KB"
+        },
+        {
+          "value": "64K",
+          "label": "64 KB"
+        }
+      ]
+    },
+    {
+      "name": "MoveCdRom",
+      "label": "Move CD-ROM off a requested letter",
+      "type": "boolean",
+      "group": "Disks",
+      "required": false,
+      "default": true
+    },
+    {
+      "name": "GuestCredential",
+      "label": "Guest administrator credential",
+      "type": "credential",
+      "group": "Target",
+      "required": true,
+      "help": "Local or domain administrator of the VMs.",
+      "vaultTags": [
+        "guest-windows"
+      ]
+    },
+    {
+      "name": "DryRun",
+      "label": "Dry run (plan only)",
+      "type": "boolean",
+      "group": "Change",
+      "required": false,
+      "default": true
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Change",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

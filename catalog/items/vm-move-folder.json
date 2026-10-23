@@ -1,0 +1,83 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "vm-move-folder",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Move VMs to folder",
+  "category": "Datacenter operations",
+  "icon": "vm",
+  "summary": "Files VMs under a vCenter VM folder (inventory only, no downtime).",
+  "description": "Moves one or more VMs into a VM folder chosen from the site inventory. Only the inventory location changes: no vMotion, no downtime. VMs already in the folder are skipped.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Inventory"
+  ],
+  "estimatedDuration": "< 1 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "execution": {
+    "handler": "Move-VsphereVmFolder.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 15,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMNames",
+      "label": "Virtual machines",
+      "type": "textarea",
+      "group": "Target",
+      "required": true,
+      "help": "One VM name per line (or comma separated), max 200.",
+      "validation": {
+        "maxLength": 4000
+      }
+    },
+    {
+      "name": "Folder",
+      "label": "Destination folder",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "folders",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Change",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}

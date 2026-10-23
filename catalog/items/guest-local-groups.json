@@ -1,0 +1,127 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "guest-local-groups",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Local admins & RDP users",
+  "category": "Datacenter operations",
+  "icon": "security",
+  "summary": "Adds accounts or groups to the local Administrators / Remote Desktop Users groups of Windows VMs.",
+  "description": "Ensures the listed accounts or groups (DOMAIN\\name or local names) are members of the local Administrators and / or Remote Desktop Users groups on one or more Windows VMs, through VMware Tools with a vault credential. Groups are addressed by well-known SID, so localized Windows works. Members already present are reported; nothing is removed. \"Report only\" lists what is missing without changing anything.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "Windows",
+    "Guest OS",
+    "Access"
+  ],
+  "estimatedDuration": "1-5 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "execution": {
+    "handler": "Set-GuestLocalGroupMembers.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "VMNames",
+      "label": "Virtual machines",
+      "type": "textarea",
+      "group": "Target",
+      "required": true,
+      "help": "One VM name per line (or comma separated), max 50.",
+      "validation": {
+        "maxLength": 4000
+      }
+    },
+    {
+      "name": "Group",
+      "label": "Local group",
+      "type": "select",
+      "group": "Membership",
+      "required": true,
+      "default": "Administrators",
+      "options": [
+        {
+          "value": "Administrators",
+          "label": "Administrators"
+        },
+        {
+          "value": "RemoteDesktopUsers",
+          "label": "Remote Desktop Users"
+        },
+        {
+          "value": "Both",
+          "label": "Both"
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "label": "Accounts or groups",
+      "type": "textarea",
+      "group": "Membership",
+      "required": true,
+      "help": "One per line: DOMAIN\\user, DOMAIN\\group or a local account name.",
+      "validation": {
+        "maxLength": 2000
+      }
+    },
+    {
+      "name": "GuestCredential",
+      "label": "Guest administrator credential",
+      "type": "credential",
+      "group": "Target",
+      "required": true,
+      "help": "Local or domain administrator of the VMs.",
+      "vaultTags": [
+        "guest-windows"
+      ]
+    },
+    {
+      "name": "ReportOnly",
+      "label": "Report only (no change)",
+      "type": "boolean",
+      "group": "Membership",
+      "required": false,
+      "default": false
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Change",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ]
+}
