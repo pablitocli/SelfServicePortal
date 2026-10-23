@@ -504,6 +504,10 @@
       "guestDiskFreeCriticalPercent": 10,
       "guestMemoryWarnPercent": 90,
       "maxEvents": 2000
+    },
+    "orphanedDisks": {
+      "pathExcludePattern": "contentlib-|/fcd/|hbrdisk\\.|hbrgrp\\.|/\\.sdd\\.sf/|/\\.vSphere-HA/|/\\.dvsData/|/\\.naa\\.",
+      "topItems": 20
     }
   }
 }

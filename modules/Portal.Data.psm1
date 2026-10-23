@@ -8,6 +8,7 @@
       versionBaseline   version-baseline.json   target builds for vCenter / ESXi / VMware Tools / VM hardware + advisories
       hardeningBaseline hardening-baseline.json security configuration checks (ESXi advanced settings, services, VM settings)
       backup            backup.json             backup policies and connector (default: vSphere tag, vendor-agnostic)
+      drsRules          drs-rules.json          expected DRS rules per site / cluster (DRS rule compliance report)
     Only Core is required, so job runners can import this module.
 #>
 
@@ -18,12 +19,14 @@ $script:Files = [ordered]@{
     versionBaseline   = 'version-baseline'
     hardeningBaseline = 'hardening-baseline'
     backup            = 'backup'
+    drsRules          = 'drs-rules'
 }
 $script:Titles = @{
     software          = 'Software repository'
     versionBaseline   = 'Version baseline'
     hardeningBaseline = 'Hardening baseline'
     backup            = 'Backup policies'
+    drsRules          = 'Expected DRS rules'
 }
 
 function Get-DV { param($T, [string] $K, $D = $null) if ($T -is [System.Collections.IDictionary] -and $T.Contains($K) -and $null -ne $T[$K]) { $T[$K] } else { $D } }
@@ -104,6 +107,23 @@ function Test-PortalDataFile {
             }
             foreach ($s in @(Get-DV $Content 'esxiServices' @())) {
                 if (-not (Get-DV $s 'key')) { $err.Add('esxiServices entries need key (e.g. TSM-SSH).') }
+            }
+        }
+        'drsRules' {
+            foreach ($k in 'largeVmGB', 'mediumVmGB') { if ($null -ne (Get-DV $Content $k $null) -and -not ((Get-DV $Content $k) -is [ValueType])) { $err.Add("$k must be a number.") } }
+            $p = [string](Get-DV $Content 'vmNamePattern' '')
+            if ($p) { try { [void][regex]::new($p) } catch { $err.Add('vmNamePattern is not a valid regular expression.') } }
+            foreach ($c in @(Get-DV $Content 'clusters' @())) {
+                $cn = [string](Get-DV $c 'cluster' '')
+                if (-not $cn -or -not [string](Get-DV $c 'site' '')) { $err.Add('Each clusters entry needs site and cluster.'); continue }
+                $names = @{}
+                foreach ($r in @(Get-DV $c 'rules' @())) {
+                    $rn = [string](Get-DV $r 'name' '')
+                    if (-not $rn -or $rn.Length -gt 80) { $err.Add("${cn}: every rule needs a name (max 80 characters)."); continue }
+                    if ($names.ContainsKey($rn)) { $err.Add("${cn}: duplicate rule '$rn'.") }; $names[$rn] = $true
+                    if (@('Separate', 'Together') -notcontains (Get-DV $r 'type' 'Separate')) { $err.Add("${cn}/${rn}: type must be Separate or Together.") }
+                    if (@(Get-DV $r 'vms' @()).Count -lt 2) { $err.Add("${cn}/${rn}: list at least two VMs.") }
+                }
             }
         }
         'backup' {

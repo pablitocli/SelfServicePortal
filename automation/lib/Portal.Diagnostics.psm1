@@ -69,6 +69,20 @@ function Resolve-PortalTimeWindow {
     return [pscustomobject]@{ Start = $s; End = $e; Incident = $null; TimeZone = $tz.Id; Label = ('{0:yyyy-MM-dd HH:mm} -> {1:yyyy-MM-dd HH:mm} UTC' -f $s, $e) }
 }
 
+function ConvertTo-PortalUtcTime {
+    <# 'yyyy-MM-dd HH:mm' in a time zone (Windows or IANA id) -> UTC [DateTimeOffset]. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [string] $Text, [string] $TimeZone = 'UTC', [string] $Label = 'Time')
+    $tz = try { [TimeZoneInfo]::FindSystemTimeZoneById($(if ($TimeZone) { $TimeZone } else { 'UTC' })) } catch { throw "Time zone '$TimeZone' is not known on the portal server (operations.troubleshooting.timeZone)." }
+    $local = [datetime]::MinValue
+    if (-not [datetime]::TryParseExact($Text.Trim(), [string[]]@('yyyy-MM-dd HH:mm', 'yyyy-MM-dd HH:mm:ss', "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mm:ss"),
+            [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$local)) {
+        throw "$Label '$Text' is not valid (use yyyy-MM-dd HH:mm, time zone $($tz.Id))."
+    }
+    $u = [datetime]::SpecifyKind($local, [DateTimeKind]::Unspecified)
+    return [DateTimeOffset]::new($u, $tz.GetUtcOffset($u)).ToUniversalTime()
+}
+
 #endregion
 
 #region vSphere ---------------------------------------------------------------------------------------------
@@ -544,6 +558,6 @@ function Get-PortalTroubleshootFindings {
 
 #endregion
 
-Export-ModuleMember -Function Resolve-PortalTimeWindow, Get-PortalStatInterval, Get-PortalPerfSeries, Get-PortalSeriesSummary, Get-PortalEventCategory, Get-PortalEntityEvents,
+Export-ModuleMember -Function Resolve-PortalTimeWindow, ConvertTo-PortalUtcTime, Get-PortalStatInterval, Get-PortalPerfSeries, Get-PortalSeriesSummary, Get-PortalEventCategory, Get-PortalEntityEvents,
     Get-PortalVsphereEvidence, New-PortalGuestDiagScript, ConvertFrom-PortalGuestDiagOutput, Get-PortalGuestDiagnostics, Get-PortalAriaEvidence, Get-PortalAriaStatSummary,
     Get-PortalTroubleshootFindings

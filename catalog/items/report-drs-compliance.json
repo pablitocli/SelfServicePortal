@@ -1,0 +1,75 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "report-drs-compliance",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "DRS rule compliance report",
+  "category": "Reports",
+  "icon": "vm",
+  "summary": "Checks DRS VM-VM rules (existence, members, placement) and host memory over-commit for a cluster.",
+  "description": "Read-only. Checks every VM-VM DRS rule of the cluster (enabled, placement: separate = one powered-on member per host, together = same host) and the expected rules listed for the cluster in the data file \"Expected DRS rules\" (exists, type, exact members). Adds host allocation (vRAM over-commit, memory used, vCPU:core, swap / balloon, large VMs per host), a VM detail table for VMs matching a name pattern (e.g. SQL), pending DRS recommendations and decommission candidates.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "DRS",
+    "Compliance",
+    "Report"
+  ],
+  "estimatedDuration": "1-3 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "execution": {
+    "handler": "Get-VsphereDrsCompliance.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "Cluster",
+      "label": "Cluster",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "clusters",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "VmNamePattern",
+      "label": "VM detail name pattern",
+      "type": "text",
+      "group": "Options",
+      "required": false,
+      "help": "Regular expression for the VM detail table (default from the data file, e.g. (?i)sql). Empty = data file value.",
+      "validation": {
+        "maxLength": 100
+      }
+    }
+  ]
+}

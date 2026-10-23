@@ -1,0 +1,24 @@
+{
+  "_comment": "Expected DRS VM-VM rules per site / cluster for the DRS rule compliance report. Every rule found in the cluster is checked anyway; rules listed here are also checked for existence, type and exact members. largeVmGB / mediumVmGB highlight big VMs in the host allocation table; vmNamePattern selects the VMs listed in the VM detail table (e.g. SQL). decommission lists VMs that should be gone.",
+  "largeVmGB": 512,
+  "mediumVmGB": 192,
+  "vmNamePattern": "(?i)sql",
+  "clusters": [
+    {
+      "site": "DC1",
+      "cluster": "CL-DB-01",
+      "rules": [
+        {
+          "name": "AA-SQL-PROD",
+          "type": "Separate",
+          "vms": [
+            "SQL-PROD-01",
+            "SQL-PROD-02"
+          ],
+          "note": "Example: production SQL pair, one VM per host"
+        }
+      ],
+      "decommission": []
+    }
+  ]
+}

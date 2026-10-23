@@ -1,0 +1,207 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "report-change-impact",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Before / after change metrics",
+  "category": "Reports",
+  "icon": "storage",
+  "summary": "Compares host storage latency, network usage and packet drops before and after a change.",
+  "description": "Read-only. For every host of a cluster (or the hosts listed) compares a window before and a window after a change (MTU, firmware, multipathing, network): datastore read / write latency, device max latency (avg, p95, max), network usage, dropped and errored packets, from vCenter historical statistics. Each metric is marked improved, worse or unchanged at cluster and host level. Optionally lists the current iSCSI vmkernel MTU and session count.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Storage",
+    "Network",
+    "Change",
+    "Report"
+  ],
+  "estimatedDuration": "2-10 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "execution": {
+    "handler": "Get-VsphereChangeImpact.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 30,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "Cluster",
+      "label": "Cluster",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "clusters",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "HostNames",
+      "label": "Hosts (optional)",
+      "type": "text",
+      "group": "Target",
+      "required": false,
+      "help": "Comma separated short or full host names; empty = every host of the cluster.",
+      "validation": {
+        "maxLength": 1000
+      }
+    },
+    {
+      "name": "ChangeDescription",
+      "label": "Change",
+      "type": "text",
+      "group": "Change",
+      "required": true,
+      "placeholder": "MTU 9000 on iSCSI vmkernel ports",
+      "validation": {
+        "maxLength": 120
+      }
+    },
+    {
+      "name": "WindowMode",
+      "label": "Windows",
+      "type": "select",
+      "group": "Change",
+      "required": true,
+      "default": "AroundChange",
+      "options": [
+        {
+          "value": "AroundChange",
+          "label": "Same hours before and after the change"
+        },
+        {
+          "value": "Explicit",
+          "label": "Explicit start / end times"
+        }
+      ]
+    },
+    {
+      "name": "ChangeTime",
+      "label": "Change time",
+      "type": "text",
+      "group": "Change",
+      "required": true,
+      "help": "yyyy-MM-dd HH:mm in the portal time zone.",
+      "placeholder": "2026-10-16 22:00",
+      "validation": {
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}(:\\d{2})?$",
+        "patternMessage": "Use yyyy-MM-dd HH:mm."
+      },
+      "visibleWhen": {
+        "field": "WindowMode",
+        "equals": "AroundChange"
+      }
+    },
+    {
+      "name": "Hours",
+      "label": "Hours before and after",
+      "type": "number",
+      "group": "Change",
+      "required": true,
+      "default": 48,
+      "help": "Use windows with similar workload (e.g. 48 h = same weekdays). Max 168.",
+      "validation": {
+        "min": 1,
+        "max": 168
+      },
+      "visibleWhen": {
+        "field": "WindowMode",
+        "equals": "AroundChange"
+      }
+    },
+    {
+      "name": "BeforeStart",
+      "label": "Before - start",
+      "type": "text",
+      "group": "Change",
+      "required": true,
+      "validation": {
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}(:\\d{2})?$",
+        "patternMessage": "Use yyyy-MM-dd HH:mm."
+      },
+      "visibleWhen": {
+        "field": "WindowMode",
+        "equals": "Explicit"
+      }
+    },
+    {
+      "name": "BeforeEnd",
+      "label": "Before - end",
+      "type": "text",
+      "group": "Change",
+      "required": true,
+      "validation": {
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}(:\\d{2})?$",
+        "patternMessage": "Use yyyy-MM-dd HH:mm."
+      },
+      "visibleWhen": {
+        "field": "WindowMode",
+        "equals": "Explicit"
+      }
+    },
+    {
+      "name": "AfterStart",
+      "label": "After - start",
+      "type": "text",
+      "group": "Change",
+      "required": true,
+      "validation": {
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}(:\\d{2})?$",
+        "patternMessage": "Use yyyy-MM-dd HH:mm."
+      },
+      "visibleWhen": {
+        "field": "WindowMode",
+        "equals": "Explicit"
+      }
+    },
+    {
+      "name": "AfterEnd",
+      "label": "After - end",
+      "type": "text",
+      "group": "Change",
+      "required": true,
+      "validation": {
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}(:\\d{2})?$",
+        "patternMessage": "Use yyyy-MM-dd HH:mm."
+      },
+      "visibleWhen": {
+        "field": "WindowMode",
+        "equals": "Explicit"
+      }
+    },
+    {
+      "name": "IncludeIscsi",
+      "label": "Include iSCSI MTU / sessions now",
+      "type": "boolean",
+      "group": "Options",
+      "required": false,
+      "default": true
+    }
+  ]
+}

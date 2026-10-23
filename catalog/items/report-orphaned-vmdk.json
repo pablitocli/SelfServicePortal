@@ -1,0 +1,83 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "report-orphaned-vmdk",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Orphaned VMDK assessment",
+  "category": "Reports",
+  "icon": "storage",
+  "summary": "Finds virtual disks no registered VM references, classifies them and sizes the reclaimable capacity.",
+  "description": "Read-only. Builds the list of files referenced by every registered VM and template in all enabled sites (so disks of VMs in another vCenter that shares a datastore are not reported), scans each datastore once and classifies the unreferenced disks: unregistered VM, detached disk, orphaned snapshot, CBT leftover, RDM mapping file. Reports capacity by category, age and datastore, the largest items and the full inventory. Nothing is deleted.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Storage",
+    "Capacity",
+    "Report"
+  ],
+  "estimatedDuration": "5-30 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": false
+  },
+  "execution": {
+    "handler": "Get-VsphereOrphanedVmdk.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 90,
+    "fixedParameters": {}
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Target",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "AllSites",
+      "label": "Include every enabled site",
+      "type": "boolean",
+      "group": "Scope",
+      "required": false,
+      "default": true,
+      "help": "Recommended: VMs registered in the other vCenters are taken into account and their datastores are scanned too."
+    },
+    {
+      "name": "AgeThresholdDays",
+      "label": "Reclaimable after (days without change)",
+      "type": "number",
+      "group": "Scope",
+      "required": true,
+      "default": 90,
+      "validation": {
+        "min": 1,
+        "max": 3650
+      }
+    },
+    {
+      "name": "DatastoreExcludePattern",
+      "label": "Skip datastores matching",
+      "type": "text",
+      "group": "Scope",
+      "required": false,
+      "help": "Regular expression on datastore names, e.g. ^local-|^datastore1",
+      "validation": {
+        "maxLength": 200
+      }
+    }
+  ]
+}
