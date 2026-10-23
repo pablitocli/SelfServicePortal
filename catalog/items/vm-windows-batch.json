@@ -1,0 +1,305 @@
+{
+  "$schema": "../schema/catalog-item.schema.json",
+  "id": "vm-windows-batch",
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Windows VM build (batch, bootstrap)",
+  "category": "Datacenter (vSphere)",
+  "icon": "windows",
+  "summary": "Builds one or many Windows VMs from a CSV list, with in-guest bootstrap, validation and a closure report.",
+  "description": "Clones every VM of the list from the site Windows template with the site customization spec (CPU, memory, portgroup, primary disk, extra disks, VM notes), then runs a portal-driven bootstrap through VMware Tools: static IP, rename, Windows Update rounds, activation, firewall / RDP, recovery partition and C: extension, data disks with the requested letters, CD-ROM letter, domain join and local groups. No password is written in the guest. Each VM is validated read-only and a closure report with ticket text is attached. Profile Citrix skips Windows Update, activation and firewall. Use \"Validate only\" to check the list first.",
+  "owner": "Infrastructure Operations",
+  "tags": [
+    "vSphere",
+    "Windows",
+    "Batch",
+    "Bootstrap"
+  ],
+  "estimatedDuration": "45-120 min",
+  "access": {
+    "roles": [
+      "Requester",
+      "Approver",
+      "Admin"
+    ],
+    "teams": [
+      "@datacenter"
+    ]
+  },
+  "approval": {
+    "required": true,
+    "approverRoles": [
+      "Approver",
+      "Admin"
+    ]
+  },
+  "execution": {
+    "handler": "New-VsphereWindowsBatch.ps1",
+    "requiresVCenter": true,
+    "siteInput": "Site",
+    "timeoutMinutes": 420,
+    "fixedParameters": {
+      "Template": "@site:windowsTemplate",
+      "CustomizationSpec": "@site:windowsCustomizationSpec"
+    }
+  },
+  "inputs": [
+    {
+      "name": "Site",
+      "label": "Datacenter",
+      "type": "select",
+      "group": "Placement",
+      "required": true,
+      "source": {
+        "type": "sites"
+      }
+    },
+    {
+      "name": "Cluster",
+      "label": "Cluster",
+      "type": "select",
+      "group": "Placement",
+      "required": true,
+      "source": {
+        "type": "clusters",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "Datastore",
+      "label": "Datastore",
+      "type": "select",
+      "group": "Placement",
+      "required": true,
+      "source": {
+        "type": "datastores",
+        "dependsOn": [
+          "Site",
+          "Cluster"
+        ]
+      }
+    },
+    {
+      "name": "Folder",
+      "label": "VM folder (optional)",
+      "type": "select",
+      "group": "Placement",
+      "required": false,
+      "help": "Empty = site default folder.",
+      "source": {
+        "type": "folders",
+        "dependsOn": [
+          "Site"
+        ]
+      }
+    },
+    {
+      "name": "VmList",
+      "label": "VM list (CSV)",
+      "type": "textarea",
+      "group": "VMs",
+      "required": true,
+      "help": "CSV with a header line. Columns: VMName, CPU, MemoryGB, Portgroup (required); DiskGB, IP (empty = DHCP), PrefixLength, Gateway, DNS (; separated, default site DNS), ExtraDisksGB (; separated), DriveLetters (; separated), Hostname (default VMName, max 15). Max 20 VMs.",
+      "placeholder": "VMName,CPU,MemoryGB,Portgroup,IP,PrefixLength,Gateway,ExtraDisksGB,DriveLetters\nAPP-WEB01,4,16,VL-210,10.10.210.21,24,10.10.210.1,100,D",
+      "validation": {
+        "maxLength": 20000
+      }
+    },
+    {
+      "name": "Profile",
+      "label": "Profile",
+      "type": "select",
+      "group": "VMs",
+      "required": true,
+      "default": "Standard",
+      "options": [
+        {
+          "value": "Standard",
+          "label": "Standard (full bootstrap)"
+        },
+        {
+          "value": "Citrix",
+          "label": "Citrix (template already prepared: no Windows Update, activation or firewall change)"
+        }
+      ]
+    },
+    {
+      "name": "ValidateOnly",
+      "label": "Validate only (no VM is created)",
+      "type": "boolean",
+      "group": "VMs",
+      "required": false,
+      "default": false
+    },
+    {
+      "name": "GuestCredential",
+      "label": "Template administrator credential",
+      "type": "credential",
+      "group": "Guest",
+      "required": true,
+      "help": "Local administrator set by the customization spec; used for the in-guest steps.",
+      "vaultTags": [
+        "guest-windows"
+      ]
+    },
+    {
+      "name": "JoinDomain",
+      "label": "Join domain",
+      "type": "boolean",
+      "group": "Domain",
+      "required": false,
+      "default": true
+    },
+    {
+      "name": "Domain",
+      "label": "Domain",
+      "type": "text",
+      "group": "Domain",
+      "required": false,
+      "help": "Empty = DNS domain of the site.",
+      "validation": {
+        "pattern": "^[A-Za-z0-9.-]{2,255}$",
+        "patternMessage": "Domain FQDN."
+      },
+      "visibleWhen": {
+        "field": "JoinDomain",
+        "equals": true
+      }
+    },
+    {
+      "name": "OUPath",
+      "label": "OU (optional)",
+      "type": "text",
+      "group": "Domain",
+      "required": false,
+      "help": "Distinguished name, e.g. OU=Servers,DC=corp,DC=example,DC=com.",
+      "validation": {
+        "maxLength": 400
+      },
+      "visibleWhen": {
+        "field": "JoinDomain",
+        "equals": true
+      }
+    },
+    {
+      "name": "DomainCredential",
+      "label": "Domain join credential",
+      "type": "credential",
+      "group": "Domain",
+      "required": true,
+      "vaultTags": [
+        "domain-join"
+      ],
+      "visibleWhen": {
+        "field": "JoinDomain",
+        "equals": true
+      }
+    },
+    {
+      "name": "LocalAdmins",
+      "label": "Local administrators",
+      "type": "textarea",
+      "group": "Access",
+      "required": false,
+      "help": "DOMAIN\\user or DOMAIN\\group, one per line.",
+      "validation": {
+        "maxLength": 2000
+      }
+    },
+    {
+      "name": "RemoteDesktopUsers",
+      "label": "Remote Desktop users",
+      "type": "textarea",
+      "group": "Access",
+      "required": false,
+      "help": "DOMAIN\\user or DOMAIN\\group, one per line.",
+      "validation": {
+        "maxLength": 2000
+      }
+    },
+    {
+      "name": "LocalAccount",
+      "label": "Local account (optional)",
+      "type": "credential",
+      "group": "Access",
+      "required": false,
+      "help": "Created on every VM (Administrators + Remote Desktop Users), e.g. for VMs left off the domain. Name and password come from the vault entry.",
+      "vaultTags": [
+        "local-account"
+      ]
+    },
+    {
+      "name": "WindowsUpdate",
+      "label": "Install Windows updates",
+      "type": "boolean",
+      "group": "Options",
+      "required": false,
+      "default": true
+    },
+    {
+      "name": "FirewallMode",
+      "label": "Windows firewall",
+      "type": "select",
+      "group": "Options",
+      "required": true,
+      "default": "EnableRdpRule",
+      "options": [
+        {
+          "value": "EnableRdpRule",
+          "label": "Keep enabled, allow Remote Desktop"
+        },
+        {
+          "value": "Keep",
+          "label": "Keep as in the template"
+        },
+        {
+          "value": "Disable",
+          "label": "Disable (not recommended)"
+        }
+      ]
+    },
+    {
+      "name": "AllocationUnit",
+      "label": "Data disk allocation unit",
+      "type": "select",
+      "group": "Options",
+      "required": true,
+      "default": "Default",
+      "options": [
+        {
+          "value": "Default",
+          "label": "Default"
+        },
+        {
+          "value": "64K",
+          "label": "64 KB (SQL Server)"
+        }
+      ]
+    },
+    {
+      "name": "MaxParallel",
+      "label": "VMs bootstrapped in parallel",
+      "type": "number",
+      "group": "Options",
+      "required": true,
+      "default": 5,
+      "validation": {
+        "min": 1,
+        "max": 10
+      }
+    },
+    {
+      "name": "ChangeTicket",
+      "label": "Change ticket",
+      "type": "text",
+      "group": "Options",
+      "required": false,
+      "validation": {
+        "maxLength": 30
+      }
+    }
+  ],
+  "vmNotes": true
+}

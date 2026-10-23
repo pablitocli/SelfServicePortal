@@ -148,7 +148,8 @@
         "help": "vSphere template cloned by the Windows build items.",
         "usedBy": [
           "vm-windows-2025",
-          "blueprint-three-tier"
+          "blueprint-three-tier",
+          "vm-windows-batch"
         ],
         "default": "TBD-TPL-WIN2025"
       },
@@ -158,7 +159,8 @@
         "help": "Guest customization spec (hostname, network) for Windows builds.",
         "usedBy": [
           "vm-windows-2025",
-          "blueprint-three-tier"
+          "blueprint-three-tier",
+          "vm-windows-batch"
         ],
         "default": "TBD-WIN2025-BASE"
       },
@@ -508,6 +510,16 @@
     "orphanedDisks": {
       "pathExcludePattern": "contentlib-|/fcd/|hbrdisk\\.|hbrgrp\\.|/\\.sdd\\.sf/|/\\.vSphere-HA/|/\\.dvsData/|/\\.naa\\.",
       "topItems": 20
+    },
+    "batchBuild": {
+      "maxVms": 20,
+      "pollSeconds": 30,
+      "stuckMinutes": 45,
+      "customizationMinutes": 40,
+      "updateRounds": 3,
+      "updateRoundMinutes": 120,
+      "domainJoinAttempts": 3,
+      "maxBootstrapMinutes": 300
     }
   }
 }
