@@ -1,5 +1,9 @@
 # Self-Service Portal
 
+> **Version 1.0.x (maintenance branch).** This branch holds the 1.0 line of the portal (last release: v1.0.2).
+> The current version is on the [`main`](../../tree/main) branch; downloads of every version are on the
+> [Releases](../../releases) page.
+
 **A free, community self-service portal for infrastructure teams** (source-available, not for resale). Users request services from a marketplace —
 new VMs on VMware vSphere, AWS or Azure, day-2 operations — and the portal validates, routes for approval,
 executes the automation and keeps a complete audit trail. Every service is a JSON catalog item plus a PowerShell
