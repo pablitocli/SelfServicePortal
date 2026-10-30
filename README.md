@@ -7,6 +7,9 @@ script, so adding a service needs no web development and no restart.
 
 ![License](https://img.shields.io/badge/license-Apache--2.0%20%2B%20Commons%20Clause-orange) ![PowerShell](https://img.shields.io/badge/PowerShell-7.4%2B-5391FE) ![Platforms](https://img.shields.io/badge/runs%20on-Linux%20%7C%20Windows%20%7C%20OVA-informational)
 
+**▶ Try the online demo:** [DEMO_URL](DEMO_URL) — the real UI with sample data, running entirely in your browser
+(nothing is executed, no sign-up). See [docs/demo.md](docs/demo.md).
+
 ![Marketplace](docs/screenshots/marketplace.png)
 
 ## Features
@@ -97,6 +100,7 @@ pre-deployment checklist — is in [docs/requirements.md](docs/requirements.md).
 | Adding services: items, inputs, handlers | [Catalog authoring](docs/catalog-authoring.md) |
 | REST API | [API](docs/api.md) |
 | Backup, upgrades, logs, monitoring, troubleshooting | [Operations](docs/operations.md) |
+| Online demo: build and publish it (Netlify, GitHub Pages) | [Demo](docs/demo.md) |
 | Delivered items and what comes next | [Roadmap](docs/roadmap.md) |
 
 ## Repository layout

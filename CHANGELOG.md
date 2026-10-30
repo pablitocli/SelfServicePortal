@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.2.0] - 2026-10-23
 
 ### Added
+- **Online demo**: a static build of the real web UI with sample data and simulated jobs (`tools/build_demo.py`, sources in `demo/src`, `netlify.toml` for one-click deploys). Nothing executes; see `docs/demo.md`.
 - **Aria Operations integration** (optional, per site): Admin > vCenter connections > Aria Operations stores the endpoint, auth source, account (vault entry `aria-<site>`) and certificate policy; *Test Aria and sync reports* reads the report definitions, and the Admin ticks those offered in forms. Jobs get a token per run (`execution.aria`, `Context.Aria`), released at the end and masked in logs. Library `automation/lib/Portal.AriaOps.psm1`.
 - **VM troubleshooting** (`vm-troubleshoot`): one VM, last hour / day / week or around an incident; vSphere counters of the VM and host (CPU ready, co-stop, balloon, swap, disk latency, drops), snapshots, Tools, events; optional read-only guest diagnostics (uptime, pending reboot, memory, disks, stopped services, error events); Aria Operations health, alerts and MAX-rollup peaks. Verdict, findings ranked by severity and number of sources, HTML report with charts, evidence pack (zip), optional Aria report (PDF).
 - **Incident evidence export (RCA)** (`vm-incident-evidence`), **Aria Operations report** (`aria-report`).

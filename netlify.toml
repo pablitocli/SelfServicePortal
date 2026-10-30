@@ -1,0 +1,12 @@
+# Online demo (static, sample data, nothing executes). Netlify: "Import from Git" uses this file.
+[build]
+  command = "python3 tools/build_demo.py"
+  publish = "demo/dist"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "no-referrer"
+    X-Content-Type-Options = "nosniff"

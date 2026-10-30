@@ -59,4 +59,6 @@ jobs:
       - name: ShellCheck
         run: shellcheck packaging/linux/*.sh packaging/ova/*.sh packaging/ova/scripts/*.sh packaging/ova/firstboot/*.sh
       - name: JavaScript syntax
-        run: for f in web/assets/*.js; do node --check "$f"; done
+        run: for f in web/assets/*.js demo/src/*.js; do node --check "$f"; done
+      - name: Online demo builds
+        run: python3 tools/build_demo.py
