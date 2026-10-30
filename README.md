@@ -135,6 +135,16 @@ Version 1.2.0. The engine, UI, identity layer (verified against OpenLDAP over LD
 covered by automated tests; integration with production vCenter, Active Directory and cloud tenants must be validated
 in your environment — start with a lab site. Planned work is in the [roadmap](docs/roadmap.md).
 
+## Versions
+
+| Version | Where | Status |
+|---|---|---|
+| 1.2.x | [`main`](../../tree/main) | Current |
+| 1.0.x | [`release/1.0`](../../tree/release/1.0) | Previous version, kept for reference and existing installations |
+
+Every release (tag `vX.Y.Z`) has its packaged download on the [Releases](../../releases) page; see
+[CHANGELOG.md](CHANGELOG.md) for what changed and [docs/operations.md](docs/operations.md) for upgrades.
+
 ## Contributing, security and license
 
 - Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md).
